@@ -16,7 +16,7 @@ const updateTeamSchema = z.object({
 
 const createTaskSchema = z.object({
  title: z.string().min(1, 'Title is required').max(200),
- description: z.string().max.optional().nullable(),
+ description: z.string().max(2000).optional().nullable(),
  type: z.enum(['task', 'bug', 'feature', 'chore']).optional(),
  priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
  status: z.enum(['backlog', 'ready', 'in_progress', 'review', 'testing', 'done', 'blocked']).optional(),
@@ -44,7 +44,7 @@ const createAgentSchema = z.object({
  config: z.object({
  temperature: z.number().min(0).max(2).optional(),
  maxTokens: z.number().int().positive().optional(),
- systemPrompt: z.string().max.optional(),
+ systemPrompt: z.string().max(4000).optional(),
  }).optional(),
  status: z.enum(['idle', 'working', 'error']).optional(),
 });
@@ -55,14 +55,14 @@ const updateAgentSchema = z.object({
  config: z.object({
  temperature: z.number().min(0).max(2).optional(),
  maxTokens: z.number().int().positive().optional(),
- systemPrompt: z.string().max.optional(),
+ systemPrompt: z.string().max(4000).optional(),
  }).optional(),
  status: z.enum(['idle', 'working', 'error']).optional(),
 });
 
 const createProjectSchema = z.object({
  name: z.string().min(1).max(120),
- description: z.string().max.optional().nullable(),
+ description: z.string().max(2000).optional().nullable(),
  status: z.enum(['active', 'paused', 'completed', 'archived']).optional(),
  teamId: z.string().min(1),
  repoUrl: z.string().url().optional().nullable(),
@@ -112,7 +112,7 @@ const aiProxySchema = z.object({
  provider: z.enum(['anthropic', 'openai']),
  model: z.string().min(1).max(80).optional(),
  messages: z.array(z.object({ role: z.string(), content: z.string() })).min(1),
- system: z.string().max.optional(),
+ system: z.string().max(4000).optional(),
  agentId: z.string().optional(),
  taskId: z.string().optional(),
  maxTokens: z.coerce.number().int().positive().optional(),

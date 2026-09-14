@@ -23,7 +23,8 @@ npm run dev
 
 This starts:
 - **Next.js** on http://localhost:3000
-- **Express API** on http://localhost:4000
+- **Express realtime/Socket.IO service** on http://localhost:4000
+- **Durable worker** for agent jobs
 
 ### 4. Open in browser
 ```
@@ -32,12 +33,13 @@ http://localhost:3000
 
 ## Architecture
 
-This project uses a two-process development architecture:
+This project uses a three-process runtime architecture:
 
-- **Next.js** (port 3000) — Frontend, pages, API routes
-- **Express** (port 4000) — REST API, Socket.IO realtime, AI agent execution
+- **Next.js** (port 3000) — Frontend, pages, and core API routes
+- **Express** (port 4000) — Realtime readiness, API proxying, GitHub/AI integration routes, and Socket.IO
+- **Durable worker** — Polls persisted jobs and runs AI agent work
 
-Both processes share the same SQLite database via Prisma.
+All processes share the same SQLite database via Prisma.
 
 ## What's Included
 
@@ -65,7 +67,7 @@ npm run dev # Start both Next.js + Express (development)
 npm run dev:next # Start Next.js only
 npm run dev:server # Start Express only
 npm run build # Build for production
-npm run start # Start production server (Next.js)
+npm run start # Start production services (Next.js + realtime + worker)
 npm run db:studio # Open Prisma Studio (visual DB editor)
 npm run db:seed # Seed the database with demo data
 npm run db:migrate # Run Prisma migrations
@@ -84,17 +86,19 @@ PORT=4000
 JWT_SECRET=<your_secret>
 ANTHROPIC_API_KEY=<your_key>
 OPENAI_API_KEY=<your_key>
-GATEWAY_ENCRYPTION_KEY=<your_32_char_key>
+# Required in production. Exactly 64 hex characters (32 bytes).
+# Generate with: openssl rand -hex 32
+GATEWAY_ENCRYPTION_KEY=
 ```
 
 ### Gateway Encryption
 
-In production, set `GATEWAY_ENCRYPTION_KEY` to a secure random string (minimum 32 characters). This encrypts AI provider API keys stored in the database. In development (`NODE_ENV=development`), keys are base64-encoded if no encryption key is set.
+In production, set `GATEWAY_ENCRYPTION_KEY` to a stable 64-character hexadecimal value. This encrypts AI provider API keys stored in the database, and changing it will make existing encrypted gateway credentials undecryptable. In development, the app uses `.local/gateway.key` when `GATEWAY_ENCRYPTION_KEY` is not set.
 
 ## Tech Stack
 
-- Next.js 14 + React 18
+- Next.js 15 + React 18
 - Express.js + Socket.IO
-- Prisma + SQLite (dev) / PostgreSQL (production)
+- Prisma + SQLite
 - Tailwind CSS
 - @dnd-kit (Kanban drag-and-drop)

@@ -8,6 +8,7 @@ function key() {
     if (value.length !== 32) throw new Error('GATEWAY_ENCRYPTION_KEY must contain 64 hex characters');
     return value;
   }
+  if (process.env.NODE_ENV === 'production') throw new Error('GATEWAY_ENCRYPTION_KEY is required in production');
   const directory = path.join(process.cwd(), '.local');
   const file = path.join(directory, 'gateway.key');
   mkdirSync(directory, { recursive: true });

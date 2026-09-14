@@ -1,7 +1,7 @@
 # Agent Office Dashboard — Project Status Report
 
 **Date:** 2026-09-15
-**Project:** Agent Office Dashboard (Next.js 14 + Express + Prisma + SQLite)
+**Project:** Agent Office Dashboard (Next.js 15 + Express + Prisma + SQLite)
 **Location:** `C:/Users/pwnya/agent-office-dashboard`
 
 ---
@@ -24,8 +24,8 @@ The Agent Office Dashboard is feature-complete for an internal single-tenant dep
 | Tests | ⚠️ Partial | 60% (unit tests; jest config needs ts-jest fix) |
 | CI | ⚠️ Partial | 50% (workflow exists; may need runner config) |
 | Reports Page Logic | ✅ Complete | 100% (live data) |
-| Gateway Encryption | ✅ Complete | 100% (AES-256-GCM) |
-| Production Process Model | ✅ Complete | 100% (PM2 + web + worker) |
+| Gateway Encryption | ✅ Complete | 100% (AES-256-GCM, production requires stable 64-character hex key) |
+| Production Process Model | ✅ Complete | 100% (web + realtime + worker) |
 
 ---
 
@@ -91,13 +91,13 @@ The Agent Office Dashboard is feature-complete for an internal single-tenant dep
 - [ ] Remove `prisma/dev.db` from Git history/current tracking (file is already `.gitignore`d; needs `git rm --cached` + history rewrite).
 - [ ] Make first-time administrator setup work behind a reverse proxy using a secure one-time setup token (partially done; `SETUP_TOKEN` exists but should be a random generated token stored in DB, not just an env var).
 - [ ] Choose one authoritative API/backend path (Next.js API routes vs Express routes overlap; consolidate).
-- [ ] Define a complete production process model (`npm start` starts Next.js only; worker needs explicit `pm2 start`).
+- [x] Define a complete production process model (`npm start` starts Next.js, realtime, and worker services).
 
 ### P1 - Security and agent execution
 - [ ] Move AI-agent execution to a durable job worker (done for queue/worker architecture; `runAgentJob` in `lib/agent-runner.ts` still needs the actual provider call wired into the worker loop).
 - [ ] Persist cancellation and recovery state (cancellation is DB-backed now; recovery metadata like lastKnownOutput needs a column).
 - [ ] Protect custom gateway URLs against SSRF on **redirects** and **DNS re-resolution** (current guard checks the initial URL; should follow and re-check).
-- [ ] Upgrade Next.js to a supported release (currently 14.2 — unsupported).
+- [x] Upgrade Next.js to a supported release (currently 15.5.x).
 - [ ] Standardize API errors (return safe client-facing codes while keeping diagnostics in logs).
 - [ ] Use shared production rate limiting (replace in-memory counters with Redis/DB-backed store).
 

@@ -15,6 +15,38 @@ if(migration.status!==0) throw new Error(migration.stdout+ migration.stderr);
 const prisma=new PrismaClient({datasources:{db:{url:`file:${db.replace(/\\/g,'/')}`}}});
 let child,worker,realtime,socket,provider,cookie='';
 const base='http://127.0.0.1:3100';
+let nextLogs='';
+let workerLogs='';
+let realtimeLogs='';
+function processState(name,proc) {
+ return {
+  name,
+  pid: proc?.pid,
+  exitCode: proc?.exitCode,
+  signalCode: proc?.signalCode,
+  killed: proc?.killed,
+ };
+}
+function collectLogs(proc,append) {
+ proc.stdout.on('data',c=>append(c));
+ proc.stderr.on('data',c=>append(c));
+}
+function startupDiagnostics() {
+ return [
+  'Next process state',
+  JSON.stringify(processState('next',child),null,2),
+  'Realtime process state',
+  JSON.stringify(processState('realtime',realtime),null,2),
+  'Worker process state',
+  JSON.stringify(processState('worker',worker),null,2),
+  'Next logs',
+  nextLogs,
+  'Realtime logs',
+  realtimeLogs,
+  'Worker logs',
+  workerLogs,
+ ].join('\n');
+}
 async function request(url,body,method=body?'POST':'GET',expected=200) {
  const r=await fetch(base+url,{method,headers:{'Content-Type':'application/json',cookie},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
  const text=await r.text();
@@ -22,9 +54,11 @@ async function request(url,body,method=body?'POST':'GET',expected=200) {
  if(r.headers.get('set-cookie')) cookie=r.headers.get('set-cookie').split(';')[0];
  return text?JSON.parse(text):null;
 }
-async function waitFor(fn) {
+async function waitFor(name,fn,diagnostics) {
  for(let i=0;i<60;i++){if(await fn())return;await new Promise(r=>setTimeout(r,200));}
- throw new Error('Timed out waiting for state');
+ console.error(`Timed out waiting for: ${name}`);
+ if(diagnostics) console.error(diagnostics());
+ throw new Error(`Timed out waiting for ${name}`);
 }
 (async()=>{
  await prisma.setting.deleteMany({where:{key:'dashboard_auth'}});
@@ -44,14 +78,15 @@ async function waitFor(fn) {
  child=spawn(process.execPath,[path.join(root,'node_modules/next/dist/bin/next'),'start','-p','3100'],{cwd:root,windowsHide:true,env:testEnv,stdio:['ignore','pipe','pipe']});
  worker=spawn(process.execPath,[path.join(root,'node_modules/tsx/dist/cli.mjs'),'server/worker.ts'],{cwd:root,windowsHide:true,env:testEnv,stdio:'pipe'});
  realtime=spawn(process.execPath,['server/index.js'],{cwd:root,windowsHide:true,env:testEnv,stdio:'pipe'});
- let logs='';
- worker.stdout.on('data',c=>logs+=c);worker.stderr.on('data',c=>logs+=c);realtime.stdout.on('data',c=>logs+=c);realtime.stderr.on('data',c=>logs+=c);child.stdout.on('data',c=>logs+=c);child.stderr.on('data',c=>logs+=c);
- await waitFor(async()=>{try{return (await fetch(base+'/api/auth')).ok;}catch{return false;}});
+ collectLogs(child,c=>nextLogs+=c);
+ collectLogs(worker,c=>workerLogs+=c);
+ collectLogs(realtime,c=>realtimeLogs+=c);
+ await waitFor('Next.js auth endpoint',async()=>{try{return (await fetch(base+'/api/auth')).ok;}catch{return false;}},startupDiagnostics);
  await request('/api/teams',null,'GET',401);
  assert.equal((await request('/api/auth')).needsSetup,true);
  await request('/api/auth',{password:'integration-test-password-123',token});
  assert.equal((await request('/api/auth')).authenticated,true);
- await waitFor(async()=>{try{return (await fetch('http://127.0.0.1:4100/ready')).ok;}catch{return false;}});
+ await waitFor('realtime readiness',async()=>{try{return (await fetch('http://127.0.0.1:4100/ready')).ok;}catch{return false;}},startupDiagnostics);
  socket=require('socket.io-client').io('http://127.0.0.1:4100',{extraHeaders:{Cookie:cookie,Origin:base},transports:['websocket']});
  await new Promise((resolve,reject)=>{socket.on('connect',resolve);socket.on('connect_error',reject);});
  let liveUpdates=0;socket.on('data:changed',()=>liveUpdates++);
@@ -70,16 +105,16 @@ async function waitFor(fn) {
  assert.equal((await request('/api/gateways')).gateways[0].apiKey,'********');
  assert.notEqual((await prisma.gateway.findUnique({where:{id:gateway.id}})).apiKey,gateway.apiKey);
  await request(`/api/agents/${agent.id}/start`,{taskId:task.id},'POST',202);
- await waitFor(async()=> (await prisma.agent.findUnique({where:{id:agent.id}})).status==='idle');
+ await waitFor('agent job completion',async()=> (await prisma.agent.findUnique({where:{id:agent.id}})).status==='idle',startupDiagnostics);
  assert.equal((await prisma.task.findUnique({where:{id:task.id}})).status,'review');
  const completed=await prisma.activity.findFirst({where:{taskId:task.id,type:'agent_completed'}});
  assert.equal(JSON.parse(completed.meta).output,'Verified provider output');
  assert.equal(JSON.parse(completed.meta).usage.totalTokens,18);
  assert.ok((await request('/api/cost')).totalTokens>=18);
- await waitFor(async()=>liveUpdates>0);
+ await waitFor('realtime event',async()=>liveUpdates>0,startupDiagnostics);
  await request(`/api/agents/${agent.id}`,{model:'slow-model'},'PUT');
  await request(`/api/agents/${agent.id}/start`,{taskId:task.id},'POST',202);
- await waitFor(async()=>!!await prisma.job.findFirst({where:{agentId:agent.id,status:'running'}}));
+ await waitFor('running job',async()=>!!await prisma.job.findFirst({where:{agentId:agent.id,status:'running'}}),startupDiagnostics);
  await request(`/api/agents/${agent.id}/stop`,{});
  await new Promise(r=>setTimeout(r,4300));
  assert.equal((await prisma.agent.findUnique({where:{id:agent.id}})).status,'idle');

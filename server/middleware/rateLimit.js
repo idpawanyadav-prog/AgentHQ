@@ -21,9 +21,10 @@ function createRateLimiter(opts = {}) {
  }
 
  // Run cleanup every windowMs
- setInterval(cleanup, windowMs);
+ const cleanupTimer = setInterval(cleanup, windowMs);
+ cleanupTimer.unref?.();
 
- return function rateLimit(req, _res, next) {
+ return function rateLimit(req, res, next) {
  // Identify the caller — prefer user ID from JWT, fall back to IP.
  const key = req.user?.id || req.ip || 'anonymous';
 
