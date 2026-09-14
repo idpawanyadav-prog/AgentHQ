@@ -202,8 +202,9 @@ const Employees: React.FC = () => {
  // Render
  return (
  <Layout activeNav="employees" onNavigate={handleNavigate}>
- {/* Page Header */}
  <div className="px-6">
+ {/* Page Header */}
+ <div>
  <div>
  <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-1">Employees</h1>
  <p className="text-sm text-slate-400">
@@ -268,6 +269,7 @@ const Employees: React.FC = () => {
  </div>
 
  {/* Main Layout: Table + Profile Panel */}
+ <div className="px-6">
  <div className="flex flex-col lg:flex-row gap-6 mb-6">
  {/* LEFT: Employee Table */}
  <div className="flex-1 min-w-0">
@@ -712,7 +714,9 @@ const Employees: React.FC = () => {
  ))}
  </div>
  </div>
+ </div>
  <p className="text-[10px] text-slate-500 mt-2">{totalEmployees} total</p>
+ </div>
  </div>
  </div>
  </Layout>
