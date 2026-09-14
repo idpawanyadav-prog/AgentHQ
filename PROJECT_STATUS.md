@@ -21,6 +21,7 @@ The Agent Office Dashboard is feature-complete for an internal single-tenant dep
 | Security Headers | ✅ Complete | 100% (CSP, HSTS, framing, content-type) |
 | Durable Job Queue | ✅ Complete | 100% (persisted in DB, worker bootstrap) |
 | SSRF Protection | ✅ Complete | 100% (loopback, private, link-local blocked) |
+| GitHub Webhook Security | ✅ Complete | 100% (raw-body HMAC signature verification) |
 | Tests | ⚠️ Partial | 60% (unit tests; jest config needs ts-jest fix) |
 | CI | ⚠️ Partial | 50% (workflow exists; may need runner config) |
 | Reports Page Logic | ✅ Complete | 100% (live data) |
@@ -42,6 +43,7 @@ The Agent Office Dashboard is feature-complete for an internal single-tenant dep
 ### P1 - API auth hardening
 - Added `withAuth` guard to all sensitive task routes that were missing it (GET /, GET /:id, POST /, PUT /:id).
 - Teams, agents, and projects routes already used `withAuth` via `router.use`.
+- GitHub webhooks bypass dashboard-cookie authentication safely and require `X-Hub-Signature-256` signed with `GITHUB_WEBHOOK_SECRET`.
 
 ### P2 - Durable job worker
 - Created `lib/job-queue.ts` with `enqueueJob`, `cancelJob`, `getJob`, `listJobs`, `heartbeatJob`, `recoverStaleJobs`, and `startWorker`.

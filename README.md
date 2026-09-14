@@ -89,11 +89,17 @@ OPENAI_API_KEY=<your_key>
 # Required in production. Exactly 64 hex characters (32 bytes).
 # Generate with: openssl rand -hex 32
 GATEWAY_ENCRYPTION_KEY=
+# Required when enabling POST /api/github/webhook.
+GITHUB_WEBHOOK_SECRET=<same_secret_configured_in_github>
 ```
 
 ### Gateway Encryption
 
 In production, set `GATEWAY_ENCRYPTION_KEY` to a stable 64-character hexadecimal value. This encrypts AI provider API keys stored in the database, and changing it will make existing encrypted gateway credentials undecryptable. In development, the app uses `.local/gateway.key` when `GATEWAY_ENCRYPTION_KEY` is not set.
+
+### GitHub Webhooks
+
+GitHub dashboard routes require an AgentHQ dashboard session. `POST /api/github/webhook` does not use the dashboard cookie; it verifies `X-Hub-Signature-256` with `GITHUB_WEBHOOK_SECRET` against the raw request body before processing the event.
 
 ## Tech Stack
 

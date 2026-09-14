@@ -21,12 +21,15 @@ const corsOptions = {
  origin: process.env.NEXTAUTH_URL || 'http://localhost:3000',
  credentials: true,
  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
- allowedHeaders: ['Content-Type', 'Authorization'],
+ allowedHeaders: ['Content-Type', 'Authorization', 'X-GitHub-Event', 'X-Hub-Signature-256'],
 };
 app.use(cors(corsOptions));
 
 // ─── Security headers (CSP, HSTS, framing, content-type) ──────────────────────
 app.use(securityHeaders);
+
+// GitHub verifies signatures against the exact raw body and does not have a dashboard session.
+app.post('/api/github/webhook', express.raw({ type: 'application/json', limit: '10mb' }), githubRouter.githubWebhookHandler);
 
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));

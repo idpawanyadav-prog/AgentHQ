@@ -3,6 +3,7 @@ const {spawn,spawnSync}=require('child_process');
 const fs=require('fs');
 const path=require('path');
 const http=require('http');
+const crypto=require('crypto');
 const assert=require('assert/strict');
 const {PrismaClient}=require('@prisma/client');
 const root=path.resolve(__dirname,'..');
@@ -54,6 +55,14 @@ async function request(url,body,method=body?'POST':'GET',expected=200) {
  if(r.headers.get('set-cookie')) cookie=r.headers.get('set-cookie').split(';')[0];
  return text?JSON.parse(text):null;
 }
+async function githubWebhook(body,secret,expected=200) {
+ const payload=JSON.stringify(body);
+ const signature='sha256='+crypto.createHmac('sha256',secret).update(Buffer.from(payload)).digest('hex');
+ const r=await fetch('http://127.0.0.1:4100/api/github/webhook',{method:'POST',headers:{'Content-Type':'application/json','X-GitHub-Event':'push','X-Hub-Signature-256':signature},body:payload,signal:AbortSignal.timeout(15000)});
+ const text=await r.text();
+ assert.equal(r.status,expected,`/api/github/webhook: ${text.slice(0,300)}`);
+ return text?JSON.parse(text):null;
+}
 async function waitFor(name,fn,diagnostics) {
  for(let i=0;i<60;i++){if(await fn())return;await new Promise(r=>setTimeout(r,200));}
  console.error(`Timed out waiting for: ${name}`);
@@ -74,7 +83,8 @@ async function waitFor(name,fn,diagnostics) {
   });
  });
  await new Promise(r=>provider.listen(0,'127.0.0.1',r));
- const testEnv={...process.env,DATABASE_URL:databaseUrl,GATEWAY_ALLOWED_ORIGINS:`http://127.0.0.1:${provider.address().port}`,GATEWAY_ENCRYPTION_KEY:'ab'.repeat(32),NEXTAUTH_URL:base,PORT:'4100',WEB_ORIGIN:base};
+ const webhookSecret='integration-webhook-secret';
+ const testEnv={...process.env,DATABASE_URL:databaseUrl,GATEWAY_ALLOWED_ORIGINS:`http://127.0.0.1:${provider.address().port}`,GATEWAY_ENCRYPTION_KEY:'ab'.repeat(32),GITHUB_WEBHOOK_SECRET:webhookSecret,NEXTAUTH_URL:base,PORT:'4100',WEB_ORIGIN:base};
  child=spawn(process.execPath,[path.join(root,'node_modules/next/dist/bin/next'),'start','-p','3100'],{cwd:root,windowsHide:true,env:testEnv,stdio:['ignore','pipe','pipe']});
  worker=spawn(process.execPath,[path.join(root,'node_modules/tsx/dist/cli.mjs'),'server/worker.ts'],{cwd:root,windowsHide:true,env:testEnv,stdio:'pipe'});
  realtime=spawn(process.execPath,['server/index.js'],{cwd:root,windowsHide:true,env:testEnv,stdio:'pipe'});
@@ -91,6 +101,9 @@ async function waitFor(name,fn,diagnostics) {
  await new Promise((resolve,reject)=>{socket.on('connect',resolve);socket.on('connect_error',reject);});
  let liveUpdates=0;socket.on('data:changed',()=>liveUpdates++);
  const team=await request('/api/teams',{name:'Integration team'},'POST',201);
+ await githubWebhook({ref:'refs/heads/main',head_commit:{message:'Integration webhook commit'}},webhookSecret);
+ assert.ok(await prisma.activity.findFirst({where:{teamId:team.id,type:'commit',description:{contains:'Integration webhook commit'}}}));
+ await githubWebhook({ref:'refs/heads/main'},'wrong-secret',401);
  const member=await prisma.member.create({data:{name:'Integration member',role:'Developer',type:'ai',teamId:team.id}});
  const project=await request('/api/projects',{name:'Integration project',teamId:team.id},'POST',201);
  await request('/api/sprints',{name:'Missing project'},'POST',400);

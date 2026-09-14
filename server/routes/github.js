@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { Octokit } = require('@octokit/rest');
 const prisma = require('../prisma');
@@ -13,6 +14,71 @@ router.use(withAuth);
 const octokit = new Octokit({
  auth: process.env.GITHUB_PERSONAL_ACCESS_TOKEN, // Optional for public repos
 });
+
+function verifyGitHubSignature(rawBody, signature) {
+ const secret = process.env.GITHUB_WEBHOOK_SECRET;
+ if (!secret || !signature || !Buffer.isBuffer(rawBody)) return false;
+
+ const expected = `sha256=${crypto.createHmac('sha256', secret).update(rawBody).digest('hex')}`;
+ const expectedBuffer = Buffer.from(expected);
+ const signatureBuffer = Buffer.from(String(signature));
+
+ return expectedBuffer.length === signatureBuffer.length && crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
+}
+
+async function githubWebhookHandler(req, res) {
+ try {
+ if (!verifyGitHubSignature(req.body, req.headers['x-hub-signature-256'])) {
+ return res.status(401).json({ error: 'Invalid webhook signature' });
+ }
+
+ const event = req.headers['x-github-event'];
+ const payload = JSON.parse(req.body.toString('utf8'));
+
+ // Find or create a default team for webhook events (single-tenant MVP)
+ const defaultTeam = await prisma.team.findFirst();
+
+ let activityType = 'github_event';
+ let description = `GitHub ${event} event received`;
+
+ if (event === 'push') {
+ activityType = 'commit';
+ description = `Push to ${payload.ref?.replace('refs/heads/', '')}: ${payload.head_commit?.message?.slice(0, 120) || ''}`;
+ } else if (event === 'pull_request') {
+ if (payload.action === 'opened') {
+ activityType = 'pr_opened';
+ description = `PR #${payload.number}: ${payload.pull_request?.title || ''}`;
+ } else if (payload.action === 'closed' && payload.pull_request?.merged) {
+ activityType = 'pr_merged';
+ description = `PR #${payload.number} merged`;
+ }
+ } else if (event === 'issues') {
+ activityType = 'issue_opened';
+ description = `Issue #${payload.issue?.number}: ${payload.issue?.title || ''}`;
+ } else if (event === 'check_suite') {
+ activityType = 'ci_status';
+ description = `CI ${payload.check_suite?.conclusion || payload.check_suite?.status}: ${payload.check_suite?.head_commit?.message?.slice(0, 80) || ''}`;
+ }
+
+ if (defaultTeam) {
+ const activity = await prisma.activity.create({
+ data: {
+ type: activityType,
+ description,
+ meta: JSON.stringify(payload),
+ teamId: defaultTeam.id,
+ },
+ });
+
+ broadcastActivity(activity);
+ }
+
+ res.status(200).json({ received: true });
+ } catch (err) {
+ console.error('[GitHub /webhook]', err);
+ res.status(400).json({ error: 'Webhook processing failed' });
+ }
+}
 
 // ─── Get repo info ────────────────────────────────────────────────────────────
 router.get('/repo', async (req, res) => {
@@ -111,55 +177,6 @@ router.get('/commits', async (req, res) => {
  }
 });
 
-// ─── GitHub webhook receiver ──────────────────────────────────────────────────
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
- try {
- const event = req.headers['x-github-event'];
- const payload = JSON.parse(req.body);
-
- // Find or create a default team for webhook events (single-tenant MVP)
- const defaultTeam = await prisma.team.findFirst();
-
- let activityType = 'github_event';
- let description = `GitHub ${event} event received`;
-
- if (event === 'push') {
- activityType = 'commit';
- description = `Push to ${payload.ref?.replace('refs/heads/', '')}: ${payload.head_commit?.message?.slice(0, 120) || ''}`;
- } else if (event === 'pull_request') {
- if (payload.action === 'opened') {
- activityType = 'pr_opened';
- description = `PR #${payload.number}: ${payload.pull_request?.title || ''}`;
- } else if (payload.action === 'closed' && payload.pull_request?.merged) {
- activityType = 'pr_merged';
- description = `PR #${payload.number} merged`;
- }
- } else if (event === 'issues') {
- activityType = 'issue_opened';
- description = `Issue #${payload.issue?.number}: ${payload.issue?.title || ''}`;
- } else if (event === 'check_suite') {
- activityType = 'ci_status';
- description = `CI ${payload.check_suite?.conclusion || payload.check_suite?.status}: ${payload.check_suite?.head_commit?.message?.slice(0, 80) || ''}`;
- }
-
- if (defaultTeam) {
- const activity = await prisma.activity.create({
- data: {
- type: activityType,
- description,
- meta: JSON.stringify(payload),
- teamId: defaultTeam.id,
- },
- });
-
- broadcastActivity(activity);
- }
-
- res.status(200).json({ received: true });
- } catch (err) {
- console.error('[GitHub /webhook]', err);
- res.status(400).json({ error: 'Webhook processing failed' });
- }
-});
-
 module.exports = router;
+module.exports.githubWebhookHandler = githubWebhookHandler;
+module.exports.verifyGitHubSignature = verifyGitHubSignature;

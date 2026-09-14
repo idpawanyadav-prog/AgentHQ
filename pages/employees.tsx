@@ -211,14 +211,14 @@ const Employees: React.FC = () => {
  </p>
  </div>
  <div className="flex items-center gap-2 flex-nowrap mb-4">
- <div className="relative flex items-center">
+ <div className="relative h-8">
  <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
  <input
  type="text"
  value={searchQuery}
  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
  placeholder="Search employees..."
- className="input-field pl-8 w-36 text-xs py-1.5 h-8"
+ className="input-field pl-8 w-36 text-xs h-full"
  />
  </div>
  <select
