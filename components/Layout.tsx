@@ -132,7 +132,7 @@ export default function Layout({ children, activeNav }: LayoutProps) {
 										onMouseLeave={(e) => {
 											if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
 										}}
-										onClick={() => setShowNav(false)}
+										onClick={() => { setShowNav(false); setSidebarCollapsed(false); }}
 									>
 										<Icon className="w-5 h-5 flex-shrink-0" />
 										{!sidebarCollapsed && <span>{item.label}</span>}
