@@ -256,7 +256,7 @@ const Employees: React.FC = () => {
  { label: "Active", value: activeCount.toString(), sub: `(${Math.round((activeCount / totalEmployees) * 100)}%)`, accent: false },
  { label: "On Leave", value: onLeaveCount.toString(), sub: `(${Math.round((onLeaveCount / totalEmployees) * 100)}%)`, accent: false },
  { label: "Inactive", value: inactiveCount.toString(), sub: `(${Math.round((inactiveCount / totalEmployees) * 100)}%)`, accent: false },
- { label: "Different Models", value: differentModels.toString(), sub: "Manage Models ->", accent: true },
+ { label: "Different Models", value: differentModels.toString(), sub: "Manage Models", accent: true },
  ].map((stat) => (
  <div key={stat.label} className="stat-card">
  <p className="text-xs text-slate-400 mb-1">{stat.label}</p>
