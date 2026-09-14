@@ -47,7 +47,17 @@ export default function Layout({ children, activeNav }: LayoutProps) {
 	const [showNotifications, setShowNotifications] = useState(false);
 	const [showNav, setShowNav] = useState(false);
 	const [showUserMenu, setShowUserMenu] = useState(false);
-	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+		if (typeof window !== 'undefined') {
+			const stored = sessionStorage.getItem('sidebarCollapsed');
+			return stored ? stored === 'true' : false;
+		}
+		return false;
+	});
+
+	React.useEffect(() => {
+		sessionStorage.setItem('sidebarCollapsed', String(sidebarCollapsed));
+	}, [sidebarCollapsed]);
 
 	const toggleSidebar = useCallback(() => {
 		setSidebarCollapsed((prev) => !prev);

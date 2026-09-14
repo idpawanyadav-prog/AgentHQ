@@ -208,19 +208,19 @@ const Teams: React.FC = () => {
 					</div>
 					<div className="flex flex-wrap items-center gap-3">
 						<div className="relative flex-1 min-w-[200px] max-w-md">
-							<FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
+							<FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
 							<input
 								type="text"
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
 								placeholder="Search teams..."
-								className="search-input w-full pl-10 pr-4 py-2 text-sm"
+								className="search-input w-full pl-9 pr-3 py-1.5 text-xs"
 							/>
 						</div>
 						<select
 							value={statusFilter}
 							onChange={(e) => setStatusFilter(e.target.value)}
-							className="input-field text-sm py-2 px-3"
+							className="input-field text-xs py-1.5 px-2"
 						>
 							{STATUS_FILTER_OPTIONS.map((opt) => (
 								<option key={opt.value} value={opt.value}>
@@ -231,7 +231,7 @@ const Teams: React.FC = () => {
 						<select
 							value={sortBy}
 							onChange={(e) => setSortBy(e.target.value)}
-							className="input-field text-sm py-2 px-3"
+							className="input-field text-xs py-1.5 px-2"
 						>
 							{SORT_OPTIONS.map((opt) => (
 								<option key={opt.value} value={opt.value}>

@@ -212,19 +212,19 @@ const Employees: React.FC = () => {
  </div>
  <div className="flex items-center gap-3 flex-wrap">
  <div className="relative">
- <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+ <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
  <input
  type="text"
  value={searchQuery}
  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
  placeholder="Search employees..."
- className="input-field pl-10 w-64"
+ className="input-field pl-9 w-48 text-xs py-1.5"
  />
  </div>
  <select
  value={teamFilter}
  onChange={(e) => { setTeamFilter(e.target.value); setCurrentPage(1); }}
- className="input-field"
+ className="input-field text-xs py-1.5 px-2"
  >
  <option>All Teams</option>
  {teamsList.map((t) => (
@@ -234,15 +234,15 @@ const Employees: React.FC = () => {
  <select
  value={roleFilter}
  onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
- className="input-field"
+ className="input-field text-xs py-1.5 px-2"
  >
  <option>All Roles</option>
  {rolesList.map((r) => (
  <option key={r}>{r}</option>
  ))}
  </select>
- <button className="btn-primary flex items-center gap-2">
- <FaPlus className="w-4 h-4" />
+ <button className="btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5">
+ <FaPlus className="w-3 h-3" />
  Add Employee
  </button>
  </div>
