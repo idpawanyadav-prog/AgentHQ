@@ -218,7 +218,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 			<p className="text-sm text-slate-400">No projects found.</p>
 			<button
 				onClick={onAdd}
-				className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+				className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
 			>
 				<FaPlus className="w-3 h-3" />
 				Add Project
@@ -325,7 +325,7 @@ const ProjectsPage: React.FC = () => {
 					</div>
 					<button
 						onClick={() => setShowAddModal(true)}
-						className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+						className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
 					>
 						<FaPlus className="w-3 h-3" />
 						Add Project
@@ -429,9 +429,9 @@ const ProjectsPage: React.FC = () => {
 								{kanbanColumns.map((col) => (
 									<div key={col.title} className={`min-w-0 rounded-lg border border-[var(--border-default)] ${col.bgColor}`}>
 										{/* Column Header */}
-										<div className={`${col.headerColor} text-[var(--text-primary)] text-sm font-semibold px-3 py-2 rounded-t-lg flex items-center justify-between`}>
+										<div className={`${col.headerColor} text-white text-sm font-semibold px-3 py-2 rounded-t-lg flex items-center justify-between`}>
 											<span>{col.title}</span>
-											<span className="bg-white/20 text-xs px-2 py-0.5 rounded-full">{col.count}</span>
+											<span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">{col.count}</span>
 										</div>
 										{/* Cards */}
 										<div className="p-2 space-y-2">
@@ -684,7 +684,7 @@ const ProjectsPage: React.FC = () => {
 								<button
 									type="submit"
 									disabled={creating}
-									className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+									className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
 								>
 									{creating && <FaSpinner className="w-3 h-3 animate-spin" />}
 									{creating ? "Creating..." : "Create Project"}

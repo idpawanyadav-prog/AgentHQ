@@ -541,7 +541,7 @@ const TasksPage: React.FC = () => {
 						<p className="text-sm text-slate-400">{error}</p>
 						<button
 							onClick={fetchTasks}
-							className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md transition-colors"
+							className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md transition-colors"
 						>
 							Retry
 						</button>
@@ -621,7 +621,7 @@ const TasksPage: React.FC = () => {
 						{/* Create Task */}
 						<button
 							onClick={openCreateModal}
-							className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+							className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
 						>
 							<FaPlus className="w-3 h-3" />
 							Create Task
@@ -1272,7 +1272,7 @@ const TasksPage: React.FC = () => {
 							<button
 								onClick={handleCreateTask}
 								disabled={submitting || !formData.title.trim()}
-								className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+								className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 							>
 								{submitting && <FaSpinner className="w-3 h-3 animate-spin" />}
 								Create Task
@@ -1427,7 +1427,7 @@ const TasksPage: React.FC = () => {
 							<button
 								onClick={handleUpdateTask}
 								disabled={submitting || !formData.title.trim()}
-								className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+								className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 							>
 								{submitting && <FaSpinner className="w-3 h-3 animate-spin" />}
 								Save Changes

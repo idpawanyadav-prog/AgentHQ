@@ -53,6 +53,11 @@
  --focus-ring: rgba(37, 99, 235, 0.4);
 }
 
+/* Light mode overrides: ensure blue buttons and colored headers use white text */
+html.light .btn-primary {
+ color: #ffffff !important;
+}
+
 html.dark {
  --bg-primary: #0f1117;
  --bg-secondary: #111827;

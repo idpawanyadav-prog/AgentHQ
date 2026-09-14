@@ -593,7 +593,7 @@ export default function SettingsPage() {
  <button
  type="button"
  onClick={openAddForm}
- className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] flex items-center gap-1 transition-colors"
+ className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 transition-colors"
  >
  <FaPlus className="w-3 h-3" />
  Add Gateway
@@ -795,7 +795,7 @@ export default function SettingsPage() {
  <div className="flex items-center gap-2 pt-1">
  <button
  type="submit"
- className="text-xs px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] transition-colors"
+ className="text-xs px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
  >
  {editingId ? "Update Gateway" : "Add Gateway"}
  </button>
@@ -832,7 +832,7 @@ export default function SettingsPage() {
  <form onSubmit={handleMainSave}>
  <button
  type="submit"
- className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
+ className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
  >
  {saved ? "Saved!" : "Save Changes"}
  </button>
