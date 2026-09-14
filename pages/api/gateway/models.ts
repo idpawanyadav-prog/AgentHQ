@@ -1,3 +1,4 @@
+import { safeFetch } from "../../../lib/safe-fetch";
 import { withAuth } from '../../../lib/auth';
 import { gatewayCredentials } from "../../../lib/gateway-credentials";
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -34,7 +35,7 @@ async function handler(
  try {
  if (isOpenAI) {
  // OpenAI-compatible: GET /v1/models
- const response = await fetch(`${trimmedBase}/v1/models`, {
+ const response = await safeFetch(`${trimmedBase}/v1/models`, {
  signal: AbortSignal.timeout(30000),
  method: "GET",
  headers: {
@@ -84,7 +85,7 @@ async function extractAnthropicModels(
  // Send a request with an intentionally invalid model name; the error
  // response body contains the list of valid models.
  try {
- const response = await fetch(`${baseUrl}/v1/messages`, {
+ const response = await safeFetch(`${baseUrl}/v1/messages`, {
  signal: AbortSignal.timeout(30000),
  method: "POST",
  headers: {

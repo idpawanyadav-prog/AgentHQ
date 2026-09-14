@@ -183,3 +183,27 @@ model Gateway {
  @@index([provider])
  @@index([isDefault])
 }
+
+model Job {
+ id String @id @default(cuid())
+ kind String // "agent_run"
+ status String @default("queued") // queued | running | completed | failed | cancelled
+ agentId String
+ taskId String?
+ teamId String
+ payload String // { agentId, taskId, config, model, provider, gatewayId, messages }
+ result String?
+ error String?
+ attempts Int @default(0)
+ maxAttempts Int @default(3)
+ startedAt DateTime?
+ finishedAt DateTime?
+ heartbeatAt DateTime?
+ cancelled Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([status, createdAt])
+ @@index([agentId])
+ @@index([taskId])
+}

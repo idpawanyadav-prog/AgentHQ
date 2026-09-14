@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
 const { broadcastAgentStatus } = require('../socket');
+const { validate, createAgentSchema, updateAgentSchema, agentStatusSchema } = require('../middleware/validate');
 
 function withAuth(req, res, next) {
  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
@@ -54,18 +55,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // ─── Create an agent ──────────────────────────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', validate(createAgentSchema), async (req, res) => {
  try {
  const { name, type, model, memberId, config, status } = req.body;
-
- if (!name || !type || !model || !memberId) {
- return res.status(400).json({ error: 'name, type, model, and memberId are required' });
- }
-
- const validTypes = ['anthropic', 'openai'];
- if (!validTypes.includes(type)) {
- return res.status(400).json({ error: 'type must be "anthropic" or "openai"' });
- }
 
  const member = await prisma.member.findUnique({
  where: { id: memberId },
@@ -94,7 +86,7 @@ router.post('/', async (req, res) => {
 });
 
 // ─── Update an agent ──────────────────────────────────────────────────────────
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(updateAgentSchema), async (req, res) => {
  try {
  const { name, model, config, status } = req.body;
 
@@ -136,14 +128,9 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ─── Set agent status ─────────────────────────────────────────────────────────
-router.post('/:id/status', async (req, res) => {
+router.post('/:id/status', validate(agentStatusSchema), async (req, res) => {
  try {
  const { status } = req.body;
- const validStatuses = ['idle', 'working', 'error'];
-
- if (!status || !validStatuses.includes(status)) {
- return res.status(400).json({ error: `status must be one of: ${validStatuses.join(', ')}` });
- }
 
  const agent = await prisma.agent.update({
  where: { id: req.params.id },

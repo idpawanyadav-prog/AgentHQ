@@ -5,3 +5,15 @@
 .next-production/
 node_modules/
 *.tsbuildinfo
+
+# Prisma
+prisma/dev.db
+prisma/*.db
+
+# Temporary HTML/zip artifacts (from %TEMP%)
+%TEMP%*.html
+%TEMP%*.zip
+
+# OS files
+.DS_Store
+Thumbs.db

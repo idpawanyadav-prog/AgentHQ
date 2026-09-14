@@ -205,7 +205,7 @@ const Employees: React.FC = () => {
  {/* Page Header */}
  <div className="px-6">
  <div>
- <h1 className="text-2xl font-bold text-white mb-1">Employees</h1>
+ <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-1">Employees</h1>
  <p className="text-sm text-slate-400">
  Manage your AI workforce, assign roles, configure models, and track performance across all teams.
  </p>
@@ -218,13 +218,13 @@ const Employees: React.FC = () => {
  value={searchQuery}
  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
  placeholder="Search employees..."
- className="input-dark pl-10 w-64"
+ className="input-field pl-10 w-64"
  />
  </div>
  <select
  value={teamFilter}
  onChange={(e) => { setTeamFilter(e.target.value); setCurrentPage(1); }}
- className="input-dark"
+ className="input-field"
  >
  <option>All Teams</option>
  {teamsList.map((t) => (
@@ -234,7 +234,7 @@ const Employees: React.FC = () => {
  <select
  value={roleFilter}
  onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
- className="input-dark"
+ className="input-field"
  >
  <option>All Roles</option>
  {rolesList.map((r) => (
@@ -259,7 +259,7 @@ const Employees: React.FC = () => {
  ].map((stat) => (
  <div key={stat.label} className="stat-card">
  <p className="text-xs text-slate-400 mb-1">{stat.label}</p>
- <p className="text-2xl font-bold text-white">{stat.value}</p>
+ <p className="text-2xl font-bold text-[var(--text-primary)]">{stat.value}</p>
  <p className={`text-xs mt-1 ${stat.accent ? "text-blue-400 hover:underline cursor-pointer" : "text-slate-500"}`}>
  {stat.sub}
  </p>
@@ -271,18 +271,18 @@ const Employees: React.FC = () => {
  <div className="flex flex-col lg:flex-row gap-6 mb-6">
  {/* LEFT: Employee Table */}
  <div className="flex-1 min-w-0">
- <div className="bg-[#1a1d2e] border border-slate-700 rounded-lg overflow-hidden">
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg overflow-hidden">
  <div className="overflow-x-auto">
  <table className="w-full text-sm">
  <thead>
- <tr className="border-b border-slate-700 text-left text-xs text-slate-400 uppercase tracking-wider">
+ <tr className="border-b border-[var(--border-default)] text-left text-xs text-slate-400 uppercase tracking-wider">
  <th className="p-3 w-10">
  <button
  onClick={() => {
  if (allOnPageSelected) setSelectedIds(new Set());
  else setSelectedIds(new Set(pageMembers.map((m) => m.id)));
  }}
- className="text-slate-400 hover:text-white"
+ className="text-slate-400 hover:text-[var(--text-primary)]"
  >
  <FaCheckSquare className={`w-4 h-4 ${allOnPageSelected ? "text-blue-400" : ""}`} />
  </button>
@@ -306,14 +306,14 @@ const Employees: React.FC = () => {
  <tr
  key={member.id}
  onClick={() => setSelectedId(member.id)}
- className={`border-b border-slate-700/50 cursor-pointer transition-colors ${
- isSelected ? "bg-blue-500/10" : "hover:bg-slate-800/40"
+ className={`border-b border-[var(--border-default)]/50 cursor-pointer transition-colors ${
+ isSelected ? "bg-blue-500/10" : "hover:bg-[var(--bg-secondary)]/40"
  }`}
  >
  <td className="p-3">
  <button
  onClick={(e) => { e.stopPropagation(); toggleSelect(member.id); }}
- className="text-slate-400 hover:text-white"
+ className="text-slate-400 hover:text-[var(--text-primary)]"
  >
  <FaCheckSquare className={`w-4 h-4 ${selectedIds.has(member.id) ? "text-blue-400" : ""}`} />
  </button>
@@ -322,7 +322,7 @@ const Employees: React.FC = () => {
  <div className="flex items-center gap-2">
  <FaUserCircle className="w-8 h-8 text-slate-500 flex-shrink-0" />
  <div>
- <span className={`font-medium ${isSelected ? "text-blue-300" : "text-white"}`}>{member.name}</span>
+ <span className={`font-medium ${isSelected ? "text-blue-300" : "text-[var(--text-primary)]"}`}>{member.name}</span>
  <span className="text-xs text-slate-500 block">{member.id}</span>
  </div>
  </div>
@@ -347,7 +347,7 @@ const Employees: React.FC = () => {
  </td>
  <td className="p-3 text-right text-slate-300 font-mono text-xs">N/A</td>
  <td className="p-3">
- <button className="text-slate-400 hover:text-white p-1">
+ <button className="text-slate-400 hover:text-[var(--text-primary)] p-1">
  <FaEllipsisH className="w-4 h-4" />
  </button>
  </td>
@@ -372,7 +372,7 @@ const Employees: React.FC = () => {
  key={page}
  onClick={() => setCurrentPage(page)}
  className={`w-8 h-8 rounded text-xs flex items-center justify-center transition-colors ${
- safePage === page ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"
+ safePage === page ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-[var(--bg-secondary)]"
  }`}
  >
  {page}
@@ -384,7 +384,7 @@ const Employees: React.FC = () => {
  <select
  value={rowsPerPage}
  onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
- className="input-dark text-xs py-1"
+ className="input-field text-xs py-1"
  >
  <option value={7}>7</option>
  <option value={14}>14</option>
@@ -398,16 +398,16 @@ const Employees: React.FC = () => {
  {/* RIGHT: Profile Panel */}
  {selectedMember ? (
  <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
- <div className="bg-[#1a1d2e] border border-slate-700 rounded-lg overflow-hidden">
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg overflow-hidden">
  {/* Header */}
- <div className="p-5 text-center border-b border-slate-700">
+ <div className="p-5 text-center border-b border-[var(--border-default)]">
  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-3">
- <span className="text-2xl font-bold text-white">
+ <span className="text-2xl font-bold text-[var(--text-primary)]">
  {selectedMember.name.split(" ").map((n) => n[0]).join("")}
  </span>
  </div>
  <div className="flex items-center justify-center gap-2">
- <h3 className="text-lg font-semibold text-white">{selectedMember.name}</h3>
+ <h3 className="text-lg font-semibold text-[var(--text-primary)]">{selectedMember.name}</h3>
  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
  <FaCircle className="w-1.5 h-1.5" />
  Active
@@ -420,7 +420,7 @@ const Employees: React.FC = () => {
  </div>
 
  {/* Tabs */}
- <div className="flex border-b border-slate-700">
+ <div className="flex border-b border-[var(--border-default)]">
  {["Overview", "Work", "Performance", "Settings"].map((tab) => (
  <button
  key={tab}
@@ -448,16 +448,16 @@ const Employees: React.FC = () => {
  ].map((field) => (
  <div key={field.label} className="flex justify-between items-start">
  <span className="text-xs text-slate-400">{field.label}</span>
- <span className="text-xs text-white text-right">{field.value}</span>
+ <span className="text-xs text-[var(--text-primary)] text-right">{field.value}</span>
  </div>
  ))}
 
  {/* Model Configuration */}
  <div>
  <p className="text-xs text-slate-400 mb-2">Model Configuration</p>
- <div className="bg-slate-800/50 rounded p-3 border border-slate-700/50">
+ <div className="bg-[var(--bg-secondary)]/50 rounded p-3 border border-[var(--border-default)]/50">
  <div className="flex items-center justify-between mb-1">
- <span className="text-xs text-white font-medium">
+ <span className="text-xs text-[var(--text-primary)] font-medium">
  {selectedMember.type === "ai" ? "AI Agent" : "N/A"}
  </span>
  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium">
@@ -476,9 +476,9 @@ const Employees: React.FC = () => {
  <div>
  <div className="flex justify-between items-center mb-1">
  <p className="text-xs text-slate-400">Workload</p>
- <span className="text-xs text-white font-medium">70%</span>
+ <span className="text-xs text-[var(--text-primary)] font-medium">70%</span>
  </div>
- <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+ <div className="h-2 rounded-full bg-[var(--bg-tertiary)] overflow-hidden">
  <div className="h-full rounded-full bg-blue-500" style={{ width: "70%" }} />
  </div>
  </div>
@@ -490,8 +490,8 @@ const Employees: React.FC = () => {
  <div className="p-5">
  <p className="text-xs text-slate-500">Recent work activity for {selectedMember.name}.</p>
  <div className="mt-3 space-y-2">
- <div className="bg-slate-800/50 rounded p-3 border border-slate-700/50">
- <p className="text-xs text-white">{selectedMember.role} assignments</p>
+ <div className="bg-[var(--bg-secondary)]/50 rounded p-3 border border-[var(--border-default)]/50">
+ <p className="text-xs text-[var(--text-primary)]">{selectedMember.role} assignments</p>
  <p className="text-[10px] text-slate-500 mt-0.5">{teamName(selectedMember.teamId)}</p>
  <span className="inline-block mt-1 text-[10px] text-blue-400">
  Active
@@ -506,11 +506,11 @@ const Employees: React.FC = () => {
  <div className="p-5 space-y-3">
  <div className="flex justify-between">
  <span className="text-xs text-slate-400">Tasks Completed</span>
- <span className="text-xs text-white">42</span>
+ <span className="text-xs text-[var(--text-primary)]">42</span>
  </div>
  <div className="flex justify-between">
  <span className="text-xs text-slate-400">Avg. Completion Time</span>
- <span className="text-xs text-white">2.3 days</span>
+ <span className="text-xs text-[var(--text-primary)]">2.3 days</span>
  </div>
  <div className="flex justify-between">
  <span className="text-xs text-slate-400">Quality Score</span>
@@ -518,7 +518,7 @@ const Employees: React.FC = () => {
  </div>
  <div className="flex justify-between">
  <span className="text-xs text-slate-400">Token Efficiency</span>
- <span className="text-xs text-white">Good</span>
+ <span className="text-xs text-[var(--text-primary)]">Good</span>
  </div>
  <div className="flex justify-between">
  <span className="text-xs text-slate-400">Uptime</span>
@@ -552,7 +552,7 @@ const Employees: React.FC = () => {
  </div>
  ) : (
  <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
- <div className="bg-[#1a1d2e] border border-slate-700 rounded-lg overflow-hidden flex items-center justify-center py-20">
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg overflow-hidden flex items-center justify-center py-20">
  <p className="text-sm text-slate-500">Select an employee to view details</p>
  </div>
  </div>
@@ -565,7 +565,7 @@ const Employees: React.FC = () => {
  <div className="stat-card">
  <div className="flex items-center gap-2 mb-3">
  <FaUsers className="w-4 h-4 text-blue-400" />
- <h3 className="text-sm font-medium text-white">Employees by Role</h3>
+ <h3 className="text-sm font-medium text-[var(--text-primary)]">Employees by Role</h3>
  </div>
  <div className="flex items-center gap-4">
  <InteractiveDonut
@@ -606,7 +606,7 @@ const Employees: React.FC = () => {
  <div className="stat-card">
  <div className="flex items-center gap-2 mb-3">
  <FaUsers className="w-4 h-4 text-teal-400" />
- <h3 className="text-sm font-medium text-white">Employees by Team</h3>
+ <h3 className="text-sm font-medium text-[var(--text-primary)]">Employees by Team</h3>
  </div>
  <div className="flex items-center gap-4">
  <InteractiveDonut
@@ -643,7 +643,7 @@ const Employees: React.FC = () => {
  <div className="stat-card">
  <div className="flex items-center gap-2 mb-3">
  <FaMicrochip className="w-4 h-4 text-purple-400" />
- <h3 className="text-sm font-medium text-white">Model Usage</h3>
+ <h3 className="text-sm font-medium text-[var(--text-primary)]">Model Usage</h3>
  </div>
  <div className="flex items-center gap-4">
  <InteractiveDonut
@@ -682,7 +682,7 @@ const Employees: React.FC = () => {
  <div className="stat-card">
  <div className="flex items-center gap-2 mb-3">
  <FaTasks className="w-4 h-4 text-emerald-400" />
- <h3 className="text-sm font-medium text-white">Availability</h3>
+ <h3 className="text-sm font-medium text-[var(--text-primary)]">Availability</h3>
  </div>
  <div className="flex items-center gap-4">
  <InteractiveDonut

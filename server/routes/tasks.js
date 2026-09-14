@@ -2,15 +2,11 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
 const { broadcastActivity, broadcastTaskUpdate } = require('../socket');
-
-function withAuth(req, res, next) {
- if (!req.user) return res.status(401).json({ error: 'Authentication required' });
- return next();
-}
-router.use(withAuth);
+const { withAuth } = require('../middleware/auth');
+const { validate, createTaskSchema, updateTaskSchema, assignTaskSchema } = require('../middleware/validate');
 
 // ─── List tasks ───────────────────────────────────────────────────────────────
-router.get('/', async (req, res) => {
+router.get('/', withAuth, async (req, res) => {
  try {
  const { teamId, status, agentId, assigneeId } = req.query;
 
@@ -40,7 +36,7 @@ router.get('/', async (req, res) => {
 });
 
 // ─── Get a single task ────────────────────────────────────────────────────────
-router.get('/:id', async (req, res) => {
+router.get('/:id', withAuth, async (req, res) => {
  try {
  const task = await prisma.task.findUnique({
  where: { id: req.params.id },
@@ -58,7 +54,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // ─── Create a task ────────────────────────────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', withAuth, validate(createTaskSchema), async (req, res) => {
  try {
  const { title, description, priority, status, teamId, assigneeId, agentId, branch, dependencies } = req.body;
 
@@ -95,7 +91,7 @@ router.post('/', async (req, res) => {
 });
 
 // ─── Update a task ────────────────────────────────────────────────────────────
-router.put('/:id', async (req, res) => {
+router.put('/:id', withAuth, validate(updateTaskSchema), async (req, res) => {
  try {
  const { title, description, priority, status, assigneeId, agentId, branch, prNumber, dependencies } = req.body;
 

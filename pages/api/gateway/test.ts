@@ -1,6 +1,8 @@
+import { safeFetch } from "../../../lib/safe-fetch";
 import { withAuth } from '../../../lib/auth';
 import { gatewayCredentials } from "../../../lib/gateway-credentials";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { parseSafeUrl } from "../../../lib/ssrf-guard";
 
 interface TestRequest {
  baseUrl?: string;
@@ -30,6 +32,12 @@ async function handler(
  return res.status(400).json({ success: false, message: "Missing required fields: baseUrl, apiKey, model" });
  }
 
+ try {
+ await parseSafeUrl(baseUrl);
+ } catch (err: any) {
+ return res.status(400).json({ success: false, message: `Refused: ${err.message}` });
+ }
+
  const trimmedBase = baseUrl.replace(/\/+$/, "").replace(/\/v1$/, "");
  const isAnthropic = provider === "anthropic";
  const path = isAnthropic ? "/v1/messages" : "/v1/chat/completions";
@@ -44,20 +52,14 @@ async function handler(
  headers["Authorization"] = `Bearer ${apiKey}`;
  }
 
- const body = isAnthropic
- ? JSON.stringify({
- model,
- max_tokens: 1,
- messages: [{ role: "user", content: "Hi" }],
- })
- : JSON.stringify({
+ const body = JSON.stringify({
  model,
  max_tokens: 1,
  messages: [{ role: "user", content: "Hi" }],
  });
 
  try {
- const response = await fetch(trimmedBase + path, {
+ const response = await safeFetch(trimmedBase + path, {
  signal: AbortSignal.timeout(30000),
  method: "POST",
  headers,

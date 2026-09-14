@@ -5,12 +5,10 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 
-const teamsRouter = require('./routes/teams');
-const tasksRouter = require('./routes/tasks');
-const agentsRouter = require('./routes/agents');
-const projectsRouter = require('./routes/projects');
 const githubRouter = require('./routes/github');
 const aiRouter = require('./routes/ai');
+const securityHeaders = require('./middleware/security-headers');
+const errorHandler = require('./middleware/error-handler');
 const { initSocketServer, broadcastActivity } = require('./socket');
 
 const prisma = new PrismaClient();
@@ -27,6 +25,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// ─── Security headers (CSP, HSTS, framing, content-type) ──────────────────────
+app.use(securityHeaders);
+
 // ─── Body parsing ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -36,8 +37,20 @@ app.get('/health', (_req, res) => {
  res.json({
  status: 'ok',
  timestamp: new Date().toISOString(),
- database: prisma ? 'connected' : 'not connected',
+ service: 'realtime',
  });
+});
+
+// Readiness probe — verifies DB connectivity before reporting ready
+let dbReady = false;
+app.get('/ready', async (_req, res) => {
+ try {
+ await prisma.$queryRaw`SELECT 1`;
+ if (!dbReady) dbReady = true;
+ res.json({ ready: true, database: 'ok', timestamp: new Date().toISOString() });
+ } catch (err) {
+ res.status(503).json({ ready: false, database: 'unreachable', error: err.message });
+ }
 });
 
 // ─── Auth utility (inline JWT verification for API routes) ────────────────────
@@ -51,29 +64,33 @@ app.use('/api', async (req, res, next) => {
 });
 
 // ─── Mount routes ─────────────────────────────────────────────────────────────
-app.use('/api/teams', teamsRouter);
-app.use('/api/tasks', tasksRouter);
-app.use('/api/agents', agentsRouter);
-app.use('/api/projects', projectsRouter);
 app.use('/api/github', githubRouter);
 app.use('/api/ai', aiRouter);
 
+// Next.js is authoritative for core APIs; preserve the incoming origin/cookie.
+app.use('/api', (req,res)=>{
+ const target=new URL(req.originalUrl,process.env.WEB_ORIGIN || 'http://127.0.0.1:3000');
+ const headers={...req.headers};delete headers['content-length'];delete headers['transfer-encoding'];
+ const upstream=http.request(target,{method:req.method,headers},response=>{res.writeHead(response.statusCode,response.headers);response.pipe(res);});
+ upstream.on('error',()=>{if(!res.headersSent)res.status(502).json({error:'Web API unavailable'});});
+ if(!['GET','HEAD'].includes(req.method))upstream.write(JSON.stringify(req.body || {}));
+ upstream.end();
+});
+
 // ─── Socket.io ────────────────────────────────────────────────────────────────
-initSocketServer(server, {
+const io=initSocketServer(server, {
  corsOrigin: process.env.NEXTAUTH_URL || 'http://localhost:3000',
 });
+
+const stopMonitor=require('./realtime-monitor').startRealtimeMonitor(io);
 
 // ─── 404 & Error handlers ─────────────────────────────────────────────────────
 app.use((_req, res) => {
  res.status(404).json({ error: 'Not found' });
 });
 
-app.use((err, _req, res, _next) => {
- console.error('[Express Error]', err);
- res.status(err.status || 500).json({
- error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
- });
-});
+// Shared, safe error handler — detailed diagnostics stay in server logs
+app.use(errorHandler);
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 async function gracefulShutdown(signal) {
@@ -81,6 +98,7 @@ async function gracefulShutdown(signal) {
  server.close(() => {
  console.log('HTTP server closed.');
  });
+ stopMonitor();
  await prisma.$disconnect();
  process.exit(0);
 }

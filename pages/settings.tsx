@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import type { Gateway, GatewayProvider, StoredSettings } from "@/types";
 import Layout from "@/components/Layout";
 import api from "@/lib/api-client";
+import { useTheme } from "@/components/ThemeProvider";
 import {
  FaKey,
  FaBolt,
@@ -20,6 +21,14 @@ import {
  FaGlobe,
  FaCog,
  FaDownload,
+ FaBuilding,
+ FaChevronDown,
+ FaShieldAlt,
+ FaUsers,
+ FaFileAlt,
+ FaClock,
+ FaLink,
+ FaChevronRight,
 } from "react-icons/fa";
 
 const STORAGE_KEY = "agent-office-settings";
@@ -72,9 +81,32 @@ const emptyForm: GatewayFormData = {
  model: "gpt-4o",
 };
 
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+ return (
+ <button
+ type="button"
+ onClick={onChange}
+ className={"relative w-11 h-6 rounded-full transition-colors duration-200 " + (checked ? "bg-blue-600" : "bg-slate-600")}
+ role="switch"
+ aria-checked={checked}
+ >
+ <span
+ className={"absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 " + (checked ? "translate-x-5" : "translate-x-0")}
+ />
+ </button>
+ );
+}
+
 export default function SettingsPage() {
-	const router = useRouter();
-	const [gateways, setGateways] = useState<Gateway[]>([]);
+ const router = useRouter();
+ const { theme, setTheme: setGlobalTheme } = useTheme();
+ const [themeChoice, setThemeChoice] = useState<string>(theme === 'dark' ? 'Dark (Default)' : 'Light');
+ const setTheme = (val: string) => {
+ setThemeChoice(val);
+ const mapped = val === 'Light' ? 'light' : 'dark';
+ setGlobalTheme(mapped);
+ };
+ const [gateways, setGateways] = useState<Gateway[]>([]);
  const [defaultGatewayId, setDefaultGatewayId] = useState<string>("");
  const [rateLimit, setRateLimit] = useState("30");
  const [saved, setSaved] = useState(false);
@@ -87,6 +119,17 @@ export default function SettingsPage() {
  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
  const [modelOptions, setModelOptions] = useState<Record<string, string[]>>({});
  const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({});
+
+ const [saveError, setSaveError] = useState("");
+
+ const [orgName, setOrgName] = useState("AI Company");
+ const [orgTimezone, setOrgTimezone] = useState("IST (UTC+5:30) — India Standard Time");
+ const [orgCurrency, setOrgCurrency] = useState("USD — US Dollar ($)");
+
+ const [notifications, setNotifications] = useState("Email & In-App");
+ const [dateFormat, setDateFormat] = useState("MMM DD, YYYY (e.g., Jan 15, 2025)");
+ const [autoRefresh, setAutoRefresh] = useState(true);
+ const [showOnboarding, setShowOnboarding] = useState(false);
 
  const handleNavigate = (item: string) => {
  const navHref: Record<string, string> = {
@@ -103,37 +146,74 @@ export default function SettingsPage() {
  };
 
  useEffect(() => {
-  (async () => {
-   try {
-    const r = await fetch('/api/gateways'); if(!r.ok) throw new Error('Unable to load gateways');
-    let data = await r.json();
-    const legacy = localStorage.getItem(STORAGE_KEY);
-    if (!data.gateways.length && legacy) {
-     const old = JSON.parse(legacy);
-     if(old.gateways?.length) {
-      const migration = await fetch('/api/gateways',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({gateways:old.gateways,defaultGatewayId:old.defaultGatewayId || old.gateways[0].id})});
-      if(!migration.ok) throw new Error('Unable to migrate saved gateways');
-      data = await (await fetch('/api/gateways')).json();localStorage.removeItem(STORAGE_KEY);
-     }
-    }
-    setGateways(data.gateways); setDefaultGatewayId(data.defaultGatewayId);
-    const remote = await api.getSettings(); if(remote.ai_rate_limit_max) setRateLimit(remote.ai_rate_limit_max);
-   } catch(e) { setSaveError((e as Error).message); }
-  })();
+ (async () => {
+ try {
+ const r = await fetch("/api/gateways");
+ if (!r.ok) throw new Error("Unable to load gateways");
+ let data = await r.json();
+ const legacy = localStorage.getItem(STORAGE_KEY);
+ if (!data.gateways.length && legacy) {
+ const old = JSON.parse(legacy);
+ if (old.gateways?.length) {
+ const migration = await fetch("/api/gateways", {
+ method: "PUT",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ gateways: old.gateways, defaultGatewayId: old.defaultGatewayId || old.gateways[0].id }),
+ });
+ if (!migration.ok) throw new Error("Unable to migrate saved gateways");
+ data = await (await fetch("/api/gateways")).json();
+ localStorage.removeItem(STORAGE_KEY);
+ }
+ }
+ setGateways(data.gateways);
+ setDefaultGatewayId(data.defaultGatewayId);
+ const remote = await api.getSettings();
+ if (remote.ai_rate_limit_max) setRateLimit(remote.ai_rate_limit_max);
+ if (remote.org_name) setOrgName(remote.org_name);
+ if (remote.org_timezone) setOrgTimezone(remote.org_timezone);
+ if (remote.org_currency) setOrgCurrency(remote.org_currency);
+ if (remote.notifications) setNotifications(remote.notifications);
+ if (remote.date_format) setDateFormat(remote.date_format);
+ if (remote.auto_refresh) setAutoRefresh(remote.auto_refresh === "true");
+ if (remote.show_onboarding) setShowOnboarding(remote.show_onboarding === "true");
+ } catch (e) {
+ setSaveError((e as Error).message);
+ }
+ })();
  }, []);
- const [saveError, setSaveError] = useState('');
+
  const persist = async (gws: Gateway[], defaultId: string) => {
-  setSaved(false); setSaveError('');
-  try {
-   const r = await fetch('/api/gateways', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({gateways:gws,defaultGatewayId:defaultId})});
-   if(!r.ok) throw new Error((await r.json()).error || 'Unable to save gateways');
-   await api.updateSettings({ai_rate_limit_max:rateLimit});
-   const refreshed = await fetch('/api/gateways');
-   if(!refreshed.ok) throw new Error('Saved, but unable to refresh gateways');
-   const data = await refreshed.json(); setGateways(data.gateways); setDefaultGatewayId(data.defaultGatewayId);
-   localStorage.removeItem(STORAGE_KEY);
-   setSaved(true); setTimeout(() => setSaved(false), 3000);
-  } catch(e) { setSaveError((e as Error).message); }
+ setSaved(false);
+ setSaveError("");
+ try {
+ const r = await fetch("/api/gateways", {
+ method: "PUT",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ gateways: gws, defaultGatewayId: defaultId }),
+ });
+ if (!r.ok) throw new Error((await r.json()).error || "Unable to save gateways");
+ await api.updateSettings({
+ org_name: orgName,
+ org_timezone: orgTimezone,
+ org_currency: orgCurrency,
+ theme,
+ notifications: notifications,
+ date_format: dateFormat,
+ auto_refresh: String(autoRefresh),
+ show_onboarding: String(showOnboarding),
+ ai_rate_limit_max: rateLimit,
+ });
+ const refreshed = await fetch("/api/gateways");
+ if (!refreshed.ok) throw new Error("Saved, but unable to refresh gateways");
+ const data = await refreshed.json();
+ setGateways(data.gateways);
+ setDefaultGatewayId(data.defaultGatewayId);
+ localStorage.removeItem(STORAGE_KEY);
+ setSaved(true);
+ setTimeout(() => setSaved(false), 3000);
+ } catch (e) {
+ setSaveError((e as Error).message);
+ }
  };
 
  const handleMainSave = (e: React.FormEvent) => {
@@ -340,21 +420,180 @@ export default function SettingsPage() {
  return (
  <Layout activeNav="settings" onNavigate={handleNavigate}>
  {saveError && <p role="alert" className="text-red-400">{saveError}</p>}
- <div className="px-6 space-y-6">
- <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
- <p className="text-slate-400 mb-8">Configure your AI providers, gateways, and platform settings.</p>
 
- {/* Gateway section — completely separate form from the main save form */}
- <div className="bg-[#1a1d2e] border border-slate-700 rounded-lg p-6 mb-8">
+ <div className="px-6 pb-24">
+ <div className="mb-8">
+ <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Settings</h1>
+ <p className="text-slate-400">Configure your organization, integrations, and platform preferences.</p>
+ </div>
+
+ <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-6">
+ <div className="flex items-center gap-3 mb-5">
+ <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+ <FaBuilding className="text-blue-400 w-5 h-5" />
+ </div>
+ <div>
+ <h2 className="text-base font-semibold text-[var(--text-primary)]">Organization Profile</h2>
+ <p className="text-xs text-slate-400">Manage your organization details and default settings.</p>
+ </div>
+ </div>
+ <div className="space-y-4">
+ <div>
+ <label className="block text-slate-300 text-xs font-medium mb-1.5">Company Name</label>
+ <input
+ type="text"
+ value={orgName}
+ onChange={(e) => setOrgName(e.target.value)}
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-4 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500"
+ />
+ </div>
+ <div>
+ <label className="block text-slate-300 text-xs font-medium mb-1.5">Timezone</label>
+ <div className="relative">
+ <select
+ value={orgTimezone}
+ onChange={(e) => setOrgTimezone(e.target.value)}
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-4 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500 appearance-none pr-10"
+ >
+ <option>IST (UTC+5:30) — India Standard Time</option>
+ <option>UTC — Coordinated Universal Time</option>
+ <option>EST (UTC-5:00) — Eastern Standard Time</option>
+ <option>PST (UTC-8:00) — Pacific Standard Time</option>
+ </select>
+ <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+ </div>
+ </div>
+ <div>
+ <label className="block text-slate-300 text-xs font-medium mb-1.5">Default Currency</label>
+ <div className="relative">
+ <select
+ value={orgCurrency}
+ onChange={(e) => setOrgCurrency(e.target.value)}
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-4 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500 appearance-none pr-10"
+ >
+ <option>USD — US Dollar ($)</option>
+ <option>EUR — Euro (€)</option>
+ <option>GBP — British Pound (£)</option>
+ <option>INR — Indian Rupee (₹)</option>
+ </select>
+ <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-6">
+ <div className="flex items-center gap-3 mb-5">
+ <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+ <FaCog className="text-blue-400 w-5 h-5" />
+ </div>
+ <div>
+ <h2 className="text-base font-semibold text-[var(--text-primary)]">General Preferences</h2>
+ <p className="text-xs text-slate-400">Customize your platform experience.</p>
+ </div>
+ </div>
+ <div className="space-y-4">
+ <div>
+ <label className="block text-slate-300 text-xs font-medium mb-1.5">Theme</label>
+ <div className="relative">
+ <select
+ value={themeChoice}
+ onChange={(e) => setTheme(e.target.value)}
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-4 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500 appearance-none pr-10"
+ >
+ <option>Dark (Default)</option>
+ <option>Light</option>
+ <option>System</option>
+ </select>
+ <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+ </div>
+ </div>
+ <div>
+ <label className="block text-slate-300 text-xs font-medium mb-1.5">Notifications</label>
+ <div className="relative">
+ <select
+ value={notifications}
+ onChange={(e) => setNotifications(e.target.value)}
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-4 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500 appearance-none pr-10"
+ >
+ <option>Email & In-App</option>
+ <option>Email Only</option>
+ <option>In-App Only</option>
+ <option>None</option>
+ </select>
+ <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+ </div>
+ </div>
+ <div>
+ <label className="block text-slate-300 text-xs font-medium mb-1.5">Date Format</label>
+ <div className="relative">
+ <select
+ value={dateFormat}
+ onChange={(e) => setDateFormat(e.target.value)}
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-4 py-2 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500 appearance-none pr-10"
+ >
+ <option>MMM DD, YYYY (e.g., Jan 15, 2025)</option>
+ <option>DD/MM/YYYY</option>
+ <option>YYYY-MM-DD</option>
+ </select>
+ <FaChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
+ </div>
+ </div>
+ <div className="flex items-center justify-between">
+ <label className="text-slate-300 text-xs font-medium">Auto refresh data</label>
+ <ToggleSwitch checked={autoRefresh} onChange={() => setAutoRefresh(!autoRefresh)} />
+ </div>
+ <div className="flex items-center justify-between">
+ <label className="text-slate-300 text-xs font-medium">Show onboarding tips</label>
+ <ToggleSwitch checked={showOnboarding} onChange={() => setShowOnboarding(!showOnboarding)} />
+ </div>
+ </div>
+ </div>
+
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-6">
+ <div className="flex items-center gap-3 mb-5">
+ <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+ <FaShieldAlt className="text-blue-400 w-5 h-5" />
+ </div>
+ <div>
+ <h2 className="text-base font-semibold text-[var(--text-primary)]">Security & Access</h2>
+ <p className="text-xs text-slate-400">Manage security settings and access controls.</p>
+ </div>
+ </div>
+ <div className="space-y-0">
+ {[
+ { label: "User Roles & Permissions", icon: FaUsers },
+ { label: "API Access", icon: FaKey },
+ { label: "Audit Log", icon: FaFileAlt },
+ { label: "Session Management", icon: FaClock },
+ { label: "Single Sign-On (SSO)", icon: FaLink },
+ ].map((item) => (
+ <div
+ key={item.label}
+ className="flex items-center justify-between py-3 border-b border-[var(--border-default)] last:border-0 cursor-pointer hover:bg-[var(--surface-input)] rounded px-2 -mx-2 transition-colors"
+ >
+ <div className="flex items-center gap-2.5">
+ <item.icon className="text-slate-400 w-4 h-4" />
+ <span className="text-sm text-[var(--text-primary)]">{item.label}</span>
+ </div>
+ <FaChevronRight className="text-slate-500 w-3.5 h-3.5" />
+ </div>
+ ))}
+ </div>
+ </div>
+ </div>
+
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-6">
  <div className="flex items-center justify-between mb-4">
- <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+ <h2 className="text-xl font-semibold text-[var(--text-primary)] flex items-center gap-2">
  <FaGlobe className="text-blue-400" />
  Gateways
  </h2>
  <button
  type="button"
  onClick={openAddForm}
- className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 transition-colors"
+ className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] flex items-center gap-1 transition-colors"
  >
  <FaPlus className="w-3 h-3" />
  Add Gateway
@@ -365,12 +604,11 @@ export default function SettingsPage() {
  </p>
 
  {gateways.length === 0 && !showForm && (
- <div className="text-center py-8 text-slate-500 text-sm border border-dashed border-slate-700 rounded-lg">
+ <div className="text-center py-8 text-slate-500 text-sm border border-dashed border-[var(--border-default)] rounded-lg">
  No gateways configured. Add one to get started.
  </div>
  )}
 
- {/* Gateway list */}
  <div className="space-y-3">
  {gateways.map((gw) => {
  const isDefault = gw.id === defaultGatewayId;
@@ -379,7 +617,7 @@ export default function SettingsPage() {
  return (
  <div
  key={gw.id}
- className={"bg-[#111827] rounded-lg p-4 border " + (isDefault ? "border-blue-400/50" : "border-slate-700")}
+ className={"bg-[var(--surface-input)] rounded-lg p-4 border " + (isDefault ? "border-blue-400/50" : "border-[var(--border-default)]")}
  >
  <div className="flex items-start justify-between mb-2">
  <div className="flex items-center gap-2">
@@ -398,7 +636,7 @@ export default function SettingsPage() {
  <button
  type="button"
  onClick={() => openEditForm(gw)}
- className="text-slate-400 hover:text-white p-1"
+ className="text-slate-400 hover:text-[var(--text-primary)] p-1"
  title="Edit"
  >
  <FaEdit className="w-3.5 h-3.5" />
@@ -414,7 +652,7 @@ export default function SettingsPage() {
  </div>
  </div>
 
- <h3 className="text-sm font-medium text-white mb-1">{gw.name}</h3>
+ <h3 className="text-sm font-medium text-[var(--text-primary)] mb-1">{gw.name}</h3>
  <p className="text-xs text-slate-500 mb-1 font-mono break-all">{gw.baseUrl}</p>
  <p className="text-xs text-slate-500 mb-2">Model: {gw.model}</p>
 
@@ -425,7 +663,7 @@ export default function SettingsPage() {
  <button
  type="button"
  onClick={() => toggleKeyVisibility(gw.id)}
- className="text-slate-400 hover:text-white"
+ className="text-slate-400 hover:text-[var(--text-primary)]"
  >
  {showKeys[gw.id] ? <FaEyeSlash className="w-3 h-3" /> : <FaEye className="w-3 h-3" />}
  </button>
@@ -438,7 +676,7 @@ export default function SettingsPage() {
  type="button"
  onClick={() => testGatewayConnection(gw)}
  disabled={!gw.apiKey || !gw.baseUrl || testResults[gw.id]?.loading}
- className="text-xs px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:bg-[#111827] disabled:text-slate-500 text-white flex items-center gap-1 transition-colors"
+ className="text-xs px-3 py-1.5 rounded bg-[var(--bg-tertiary)] hover:bg-slate-600 disabled:bg-[var(--surface-input)] disabled:text-slate-500 text-[var(--text-primary)] flex items-center gap-1 transition-colors"
  >
  <FaPlug className="w-3 h-3" />
  Test Connection
@@ -447,7 +685,7 @@ export default function SettingsPage() {
  type="button"
  onClick={() => fetchModelsForGateway(gw)}
  disabled={loadingModels[gw.id] || !gw.apiKey || !gw.baseUrl}
- className="text-xs px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:bg-[#111827] disabled:text-slate-500 text-white flex items-center gap-1 transition-colors"
+ className="text-xs px-3 py-1.5 rounded bg-[var(--bg-tertiary)] hover:bg-slate-600 disabled:bg-[var(--surface-input)] disabled:text-slate-500 text-[var(--text-primary)] flex items-center gap-1 transition-colors"
  >
  {loadingModels[gw.id] ? <FaSpinner className="w-3 h-3 animate-spin" /> : <FaDownload className="w-3 h-3" />}
  {loadingModels[gw.id] ? "Loading..." : modelOptions[gw.id]?.length > 0 ? "Models: " + modelOptions[gw.id].length : "Fetch Models"}
@@ -456,7 +694,7 @@ export default function SettingsPage() {
  <button
  type="button"
  onClick={() => handleSetDefault(gw.id)}
- className="text-xs px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white flex items-center gap-1 transition-colors"
+ className="text-xs px-3 py-1.5 rounded bg-[var(--bg-tertiary)] hover:bg-slate-600 text-[var(--text-primary)] flex items-center gap-1 transition-colors"
  >
  <FaStar className="w-3 h-3" />
  Set as Default
@@ -468,10 +706,9 @@ export default function SettingsPage() {
  })}
  </div>
 
- {/* Add/Edit form — separate form element so it doesn't submit the outer form */}
  {showForm && (
- <form onSubmit={handleFormSubmit} className="mt-4 bg-[#1a1d2e] border border-slate-600 rounded-lg p-4 space-y-3">
- <h3 className="text-sm font-medium text-white">{editingId ? "Edit Gateway" : "New Gateway"}</h3>
+ <form onSubmit={handleFormSubmit} className="mt-4 bg-[var(--surface-card)] border border-slate-600 rounded-lg p-4 space-y-3">
+ <h3 className="text-sm font-medium text-[var(--text-primary)]">{editingId ? "Edit Gateway" : "New Gateway"}</h3>
  <div>
  <label className="block text-slate-300 text-xs font-medium mb-1">Name</label>
  <input
@@ -480,7 +717,7 @@ export default function SettingsPage() {
  onChange={(e) => setForm({ ...form, name: e.target.value })}
  placeholder="My Claude Proxy"
  required
- className="w-full bg-[#111827] border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-[var(--text-primary)] text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
  />
  </div>
  <div>
@@ -488,7 +725,7 @@ export default function SettingsPage() {
  <select
  value={form.provider}
  onChange={(e) => setForm({ ...form, provider: e.target.value as GatewayProvider, model: DEFAULT_MODELS[e.target.value as GatewayProvider] })}
- className="w-full bg-[#111827] border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500"
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500"
  >
  <option value="anthropic">Anthropic (Claude)</option>
  <option value="openai">OpenAI (GPT)</option>
@@ -503,7 +740,7 @@ export default function SettingsPage() {
  onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
  placeholder="https://api.brocode.live"
  required
- className="w-full bg-[#111827] border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-[var(--text-primary)] text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
  />
  <p className="text-slate-500 text-xs mt-0.5">Full API endpoint. Supports proxies like Brocode, , etc.</p>
  </div>
@@ -516,12 +753,12 @@ export default function SettingsPage() {
  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
  placeholder="sk-..."
  required
- className="w-full bg-[#111827] border border-slate-700 rounded-lg px-3 py-1.5 pr-10 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
+ className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 pr-10 text-[var(--text-primary)] text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500"
  />
  <button
  type="button"
  onClick={() => setShowKeys((prev) => ({ ...prev, __form__: !prev.__form__ }))}
- className="absolute right-2 top-1.5 text-slate-400 hover:text-white"
+ className="absolute right-2 top-1.5 text-slate-400 hover:text-[var(--text-primary)]"
  >
  {showKeys["__form__"] ? <FaEyeSlash className="w-3.5 h-3.5" /> : <FaEye className="w-3.5 h-3.5" />}
  </button>
@@ -534,7 +771,7 @@ export default function SettingsPage() {
  value={form.model}
  onChange={(e) => setForm({ ...form, model: e.target.value })}
  disabled={modelOptions["__form__"]?.length > 0}
- className="flex-1 bg-[#111827] border border-slate-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 disabled:bg-[#111827] disabled:text-slate-400"
+ className="flex-1 bg-[var(--surface-input)] border border-[var(--border-default)] rounded-lg px-3 py-1.5 text-[var(--text-primary)] text-sm focus:outline-none focus:border-blue-500 disabled:bg-[var(--surface-input)] disabled:text-slate-400"
  >
  {modelOptions["__form__"]?.length > 0 ? (
  modelOptions["__form__"].map((id) => (
@@ -548,7 +785,7 @@ export default function SettingsPage() {
  type="button"
  onClick={fetchModelsForForm}
  disabled={loadingModels["__form__"] || !form.baseUrl || !form.apiKey}
- className="text-xs px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:bg-[#111827] disabled:text-slate-500 text-white flex items-center gap-1 transition-colors whitespace-nowrap"
+ className="text-xs px-3 py-1.5 rounded bg-[var(--bg-tertiary)] hover:bg-slate-600 disabled:bg-[var(--surface-input)] disabled:text-slate-500 text-[var(--text-primary)] flex items-center gap-1 transition-colors whitespace-nowrap"
  >
  {loadingModels["__form__"] ? <FaSpinner className="w-3 h-3 animate-spin" /> : <FaDownload className="w-3 h-3" />}
  {loadingModels["__form__"] ? "..." : "Fetch"}
@@ -558,14 +795,14 @@ export default function SettingsPage() {
  <div className="flex items-center gap-2 pt-1">
  <button
  type="submit"
- className="text-xs px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+ className="text-xs px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] transition-colors"
  >
  {editingId ? "Update Gateway" : "Add Gateway"}
  </button>
  <button
  type="button"
  onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); }}
- className="text-xs px-4 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+ className="text-xs px-4 py-1.5 rounded bg-[var(--bg-tertiary)] hover:bg-slate-600 text-[var(--text-primary)] transition-colors"
  >
  Cancel
  </button>
@@ -573,52 +810,31 @@ export default function SettingsPage() {
  </form>
  )}
  </div>
-
- {/* Platform settings — inside a separate <form> so the Save button works */}
- <form onSubmit={handleMainSave} className="space-y-8">
- <div className="bg-[#1a1d2e] border border-slate-700 rounded-lg p-6">
- <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
- <FaCog className="text-blue-400" />
- Platform Settings
- </h2>
- <div className="space-y-4">
- <div>
- <label className="block text-slate-300 text-sm font-medium mb-2">AI Rate Limit (requests per minute)</label>
- <input
- type="number"
- value={rateLimit}
- onChange={(e) => setRateLimit(e.target.value)}
- min="1"
- max="200"
- className="w-full bg-[#111827] border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
- />
- </div>
- </div>
  </div>
 
- {/* GitHub */}
- <div className="bg-[#1a1d2e] border border-slate-700 rounded-lg p-6">
- <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
- <FaKey className="text-green-400" />
- GitHub Integration
- </h2>
- <p className="text-slate-400 text-sm mb-4">
- Connect your GitHub account to enable repository access and webhooks.
- </p>
+ <div className="fixed bottom-6 right-6 flex items-center gap-3">
  <button
  type="button"
- className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+ onClick={() => {
+ setOrgName("AI Company");
+ setOrgTimezone("IST (UTC+5:30) — India Standard Time");
+ setOrgCurrency("USD — US Dollar ($)");
+ setThemeChoice("Dark (Default)");
+ setNotifications("Email & In-App");
+ setDateFormat("MMM DD, YYYY (e.g., Jan 15, 2025)");
+ setAutoRefresh(true);
+ setShowOnboarding(false);
+ }}
+ className="bg-[var(--bg-tertiary)] hover:bg-slate-600 text-[var(--text-primary)] px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
  >
- Connect GitHub Account
+ Cancel
  </button>
- </div>
-
- {/* Save Button */}
+ <form onSubmit={handleMainSave}>
  <button
  type="submit"
- className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-medium transition-colors"
+ className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
  >
- {saved ? "Saved!" : "Save Settings"}
+ {saved ? "Saved!" : "Save Changes"}
  </button>
  </form>
  </div>

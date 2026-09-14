@@ -1,5 +1,5 @@
 // Runs against an isolated copy of the database and a local mock provider.
-const {spawn}=require('child_process');
+const {spawn,spawnSync}=require('child_process');
 const fs=require('fs');
 const path=require('path');
 const http=require('http');
@@ -8,9 +8,12 @@ const {PrismaClient}=require('@prisma/client');
 const root=path.resolve(__dirname,'..');
 const db=path.join(root,'.local',`integration-${Date.now()}.db`);
 fs.mkdirSync(path.dirname(db),{recursive:true});
-fs.copyFileSync(path.join(root,'prisma','dev.db'),db);
+fs.writeFileSync(db,'');
+const databaseUrl=`file:${db.replace(/\\/g,'/')}`;
+const migration=spawnSync(process.execPath,[path.join(root,'node_modules/prisma/build/index.js'),'migrate','deploy'],{cwd:root,env:{...process.env,DATABASE_URL:databaseUrl},encoding:'utf8'});
+if(migration.status!==0) throw new Error(migration.stdout+ migration.stderr);
 const prisma=new PrismaClient({datasources:{db:{url:`file:${db.replace(/\\/g,'/')}`}}});
-let child,provider,cookie='';
+let child,worker,realtime,socket,provider,cookie='';
 const base='http://127.0.0.1:3100';
 async function request(url,body,method=body?'POST':'GET',expected=200) {
  const r=await fetch(base+url,{method,headers:{'Content-Type':'application/json',cookie},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
@@ -25,7 +28,10 @@ async function waitFor(fn) {
 }
 (async()=>{
  await prisma.setting.deleteMany({where:{key:'dashboard_auth'}});
+ await prisma.setting.deleteMany({where:{key:'dashboard_setup_token'}});
  await prisma.gateway.deleteMany();
+ const token = 'integration-setup-token-' + Date.now();
+ await prisma.setting.create({data:{key:'dashboard_setup_token',value:JSON.stringify({token,used:false})}});
  provider=http.createServer((req,res)=>{
   let body='';req.on('data',c=>body+=c);req.on('end',()=>{
    const input=JSON.parse(body || '{}');
@@ -34,13 +40,21 @@ async function waitFor(fn) {
   });
  });
  await new Promise(r=>provider.listen(0,'127.0.0.1',r));
- child=spawn(process.execPath,[path.join(root,'node_modules/next/dist/bin/next'),'start','-p','3100'],{cwd:root,windowsHide:true,env:{...process.env,DATABASE_URL:`file:${db.replace(/\\/g,'/')}`},stdio:['ignore','pipe','pipe']});
- let logs='';child.stdout.on('data',c=>logs+=c);child.stderr.on('data',c=>logs+=c);
+ const testEnv={...process.env,DATABASE_URL:databaseUrl,GATEWAY_ALLOWED_ORIGINS:`http://127.0.0.1:${provider.address().port}`,GATEWAY_ENCRYPTION_KEY:'ab'.repeat(32),NEXTAUTH_URL:base,PORT:'4100',WEB_ORIGIN:base};
+ child=spawn(process.execPath,[path.join(root,'node_modules/next/dist/bin/next'),'start','-p','3100'],{cwd:root,windowsHide:true,env:testEnv,stdio:['ignore','pipe','pipe']});
+ worker=spawn(process.execPath,[path.join(root,'node_modules/tsx/dist/cli.mjs'),'server/worker.ts'],{cwd:root,windowsHide:true,env:testEnv,stdio:'pipe'});
+ realtime=spawn(process.execPath,['server/index.js'],{cwd:root,windowsHide:true,env:testEnv,stdio:'pipe'});
+ let logs='';
+ worker.stdout.on('data',c=>logs+=c);worker.stderr.on('data',c=>logs+=c);realtime.stdout.on('data',c=>logs+=c);realtime.stderr.on('data',c=>logs+=c);child.stdout.on('data',c=>logs+=c);child.stderr.on('data',c=>logs+=c);
  await waitFor(async()=>{try{return (await fetch(base+'/api/auth')).ok;}catch{return false;}});
  await request('/api/teams',null,'GET',401);
  assert.equal((await request('/api/auth')).needsSetup,true);
- await request('/api/auth',{password:'integration-test-password-123'});
+ await request('/api/auth',{password:'integration-test-password-123',token});
  assert.equal((await request('/api/auth')).authenticated,true);
+ await waitFor(async()=>{try{return (await fetch('http://127.0.0.1:4100/ready')).ok;}catch{return false;}});
+ socket=require('socket.io-client').io('http://127.0.0.1:4100',{extraHeaders:{Cookie:cookie,Origin:base},transports:['websocket']});
+ await new Promise((resolve,reject)=>{socket.on('connect',resolve);socket.on('connect_error',reject);});
+ let liveUpdates=0;socket.on('data:changed',()=>liveUpdates++);
  const team=await request('/api/teams',{name:'Integration team'},'POST',201);
  const member=await prisma.member.create({data:{name:'Integration member',role:'Developer',type:'ai',teamId:team.id}});
  const project=await request('/api/projects',{name:'Integration project',teamId:team.id},'POST',201);
@@ -62,8 +76,10 @@ async function waitFor(fn) {
  assert.equal(JSON.parse(completed.meta).output,'Verified provider output');
  assert.equal(JSON.parse(completed.meta).usage.totalTokens,18);
  assert.ok((await request('/api/cost')).totalTokens>=18);
+ await waitFor(async()=>liveUpdates>0);
  await request(`/api/agents/${agent.id}`,{model:'slow-model'},'PUT');
  await request(`/api/agents/${agent.id}/start`,{taskId:task.id},'POST',202);
+ await waitFor(async()=>!!await prisma.job.findFirst({where:{agentId:agent.id,status:'running'}}));
  await request(`/api/agents/${agent.id}/stop`,{});
  await new Promise(r=>setTimeout(r,4300));
  assert.equal((await prisma.agent.findUnique({where:{id:agent.id}})).status,'idle');
@@ -76,5 +92,5 @@ async function waitFor(fn) {
  await request('/api/agents',null,'GET',401);
  console.log('PASS: authentication, CRUD, criteria, assignment, status, encrypted gateways, agent execution, cancellation, usage, reports, logout');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{
- child?.kill();provider?.closeAllConnections();provider?.close();await prisma.$disconnect();
+ socket?.disconnect();worker?.kill();realtime?.kill();child?.kill();provider?.closeAllConnections();provider?.close();await prisma.$disconnect();
 });

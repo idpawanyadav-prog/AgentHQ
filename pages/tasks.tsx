@@ -1,3 +1,4 @@
+import {onDashboardChange} from '@/lib/socket-client';
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Layout from "@/components/Layout";
@@ -73,7 +74,7 @@ function transformApiTask(t: Task): TaskRowWithCI {
 		? ["bg-blue-600", "bg-purple-600", "bg-green-600", "bg-orange-600", "bg-pink-600", "bg-cyan-600"][
 			Math.abs(member.name.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 6
 		 ]
-		: "bg-slate-700";
+		: "bg-[var(--bg-tertiary)]";
 
 	const dueDate = t.dueDate
 		? new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -304,8 +305,8 @@ const TasksPage: React.FC = () => {
 
 	useEffect(() => {
 		fetchTasks();
- const timer = setInterval(fetchTasks, 2000);
- return () => clearInterval(timer);
+ const unsubscribe = onDashboardChange(fetchTasks);
+ return () => unsubscribe();
 	}, [fetchTasks]);
 
 	// Toast auto-dismiss
@@ -504,7 +505,7 @@ const TasksPage: React.FC = () => {
 	const toastEl = toast ? (
 		<div
 			className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm font-medium ${
-				toast.type === "success" ? "bg-green-500/90 text-white" : "bg-red-500/90 text-white"
+				toast.type === "success" ? "bg-green-500/90 text-[var(--text-primary)]" : "bg-red-500/90 text-[var(--text-primary)]"
 			}`}
 		>
 			{toast.type === "success" ? <FaCheckCircle className="w-4 h-4" /> : <FaExclamationTriangle className="w-4 h-4" />}
@@ -536,11 +537,11 @@ const TasksPage: React.FC = () => {
 				<div className="flex items-center justify-center h-[60vh]">
 					<div className="flex flex-col items-center gap-3 max-w-md text-center">
 						<FaExclamationTriangle className="w-8 h-8 text-red-400" />
-						<p className="text-white font-medium">Failed to load tasks</p>
+						<p className="text-[var(--text-primary)] font-medium">Failed to load tasks</p>
 						<p className="text-sm text-slate-400">{error}</p>
 						<button
 							onClick={fetchTasks}
-							className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md transition-colors"
+							className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md transition-colors"
 						>
 							Retry
 						</button>
@@ -558,7 +559,7 @@ const TasksPage: React.FC = () => {
 				{/* ── Page Header ─────────────────────────────────────────── */}
 				<div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
 					<div>
-						<h1 className="text-2xl font-bold text-white">Tasks</h1>
+						<h1 className="text-2xl font-bold text-[var(--text-primary)]">Tasks</h1>
 						<p className="text-sm text-slate-400 mt-1">Manage and track tasks across all projects and teams.</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-3">
@@ -570,7 +571,7 @@ const TasksPage: React.FC = () => {
 								placeholder="Search tasks..."
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								className="w-64 bg-[#111827] border border-slate-700 rounded-md pl-9 pr-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+								className="w-64 bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md pl-9 pr-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
 							/>
 						</div>
 
@@ -578,7 +579,7 @@ const TasksPage: React.FC = () => {
 						<select
 							value={projectFilter}
 							onChange={(e) => setProjectFilter(e.target.value)}
-							className="bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+							className="bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 						>
 							{projects.map((p) => (
 								<option key={p} value={p}>{projectOptions.find(o=>o.id===p)?.name || p}</option>
@@ -589,7 +590,7 @@ const TasksPage: React.FC = () => {
 						<select
 							value={teamFilter}
 							onChange={(e) => setTeamFilter(e.target.value)}
-							className="bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+							className="bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 						>
 							{teams.map((t) => (
 								<option key={t} value={t}>{teamOptions.find(o=>o.id===t)?.name || t}</option>
@@ -600,7 +601,7 @@ const TasksPage: React.FC = () => {
 						<select
 							value={statusFilter}
 							onChange={(e) => setStatusFilter(e.target.value)}
-							className="bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+							className="bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 						>
 							{statuses.map((s) => (
 								<option key={s} value={s}>{s}</option>
@@ -610,7 +611,7 @@ const TasksPage: React.FC = () => {
 						{/* Filters toggle */}
 						<button
 							onClick={() => setShowFilters(!showFilters)}
-							className="bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 hover:text-white flex items-center gap-2 transition-colors"
+							className="bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 hover:text-[var(--text-primary)] flex items-center gap-2 transition-colors"
 						>
 							<FaFilter className="w-3 h-3" />
 							Filters
@@ -620,7 +621,7 @@ const TasksPage: React.FC = () => {
 						{/* Create Task */}
 						<button
 							onClick={openCreateModal}
-							className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+							className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
 						>
 							<FaPlus className="w-3 h-3" />
 							Create Task
@@ -631,11 +632,11 @@ const TasksPage: React.FC = () => {
 				{/* ── Stats Row ───────────────────────────────────────────── */}
 				<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
 					{computedStats.map((s, idx) => (
-						<div key={s.label} className="bg-[#1a1d2e] border border-slate-700 rounded-lg p-4">
+						<div key={s.label} className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4">
 							<div className="flex items-start justify-between">
 								<div>
 									<p className="text-xs text-slate-400 mb-1">{s.label}</p>
-									<p className="text-xl font-bold text-white">{s.value}</p>
+									<p className="text-xl font-bold text-[var(--text-primary)]">{s.value}</p>
 								</div>
 								<div className={`p-2 rounded-lg ${DEFAULT_STATS[idx].bg} ${DEFAULT_STATS[idx].color}`}>
 									{(() => {
@@ -649,7 +650,7 @@ const TasksPage: React.FC = () => {
 				</div>
 
 				{/* ── View Tabs ───────────────────────────────────────────── */}
-				<div className="flex items-center gap-1 border-b border-slate-700">
+				<div className="flex items-center gap-1 border-b border-[var(--border-default)]">
 					{VIEW_TABS.map((tab) => (
 						<button
 							key={tab.id}
@@ -657,7 +658,7 @@ const TasksPage: React.FC = () => {
 							className={`px-4 py-2.5 text-sm font-medium transition-colors ${
 								activeView === tab.id
 									? "text-blue-400 border-b-2 border-blue-500"
-									: "text-slate-400 hover:text-white"
+									: "text-slate-400 hover:text-[var(--text-primary)]"
 							}`}
 						>
 							{tab.label}
@@ -678,8 +679,8 @@ const TasksPage: React.FC = () => {
 									>
 										{/* Column Header */}
 										<div className="px-3 py-2.5 rounded-t-lg flex items-center justify-between" style={{ backgroundColor: col.headerBg }}>
-											<h3 className="text-sm font-semibold text-white">{col.title}</h3>
-											<span className="text-xs text-white/70 bg-white/10 px-2 py-0.5 rounded-full">
+											<h3 className="text-sm font-semibold text-[var(--text-primary)]">{col.title}</h3>
+											<span className="text-xs text-[var(--text-primary)]/70 bg-white/10 px-2 py-0.5 rounded-full">
 												{col.tasks.length}
 											</span>
 										</div>
@@ -692,9 +693,9 @@ const TasksPage: React.FC = () => {
 													onClick={() => setSelectedTask(task)}
 													className="cursor-pointer group"
 												>
-													<div className="bg-[#1a1d2e] border border-slate-700 rounded-md p-3 hover:border-slate-600 transition-colors">
+													<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-md p-3 hover:border-slate-600 transition-colors">
 														{/* Type badge */}
-														<span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-300 uppercase tracking-wide mb-1.5 inline-block">
+														<span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)]/60 text-slate-300 uppercase tracking-wide mb-1.5 inline-block">
 															{task.type}
 														</span>
 														{/* TaskCard */}
@@ -706,7 +707,7 @@ const TasksPage: React.FC = () => {
 														</div>
 														{/* Progress bar */}
 														<div className="mt-2">
-															<div className="w-full bg-slate-700/60 rounded-full h-1.5">
+															<div className="w-full bg-[var(--bg-tertiary)]/60 rounded-full h-1.5">
 																<div
 																	className="bg-blue-500 h-1.5 rounded-full transition-all"
 																	style={{ width: `${task.progress}%` }}
@@ -730,11 +731,11 @@ const TasksPage: React.FC = () => {
 						)}
 
 						{activeView === "list" && (
-							<div className="bg-[#1a1d2e] border border-slate-700 rounded-lg overflow-hidden">
+							<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg overflow-hidden">
 								<div className="overflow-x-auto">
 									<table className="w-full text-sm">
 										<thead>
-											<tr className="text-xs text-slate-500 border-b border-slate-700">
+											<tr className="text-xs text-slate-500 border-b border-[var(--border-default)]">
 												<th className="text-left px-4 py-3 font-medium">Task</th>
 												<th className="text-left px-4 py-3 font-medium">Type</th>
 												<th className="text-left px-4 py-3 font-medium">Priority</th>
@@ -752,16 +753,16 @@ const TasksPage: React.FC = () => {
 													<tr
 														key={task.id}
 														onClick={() => setSelectedTask(task)}
-														className="border-b border-slate-700/50 hover:bg-slate-800/30 cursor-pointer"
+														className="border-b border-[var(--border-default)]/50 hover:bg-[var(--bg-secondary)]/30 cursor-pointer"
 													>
 														<td className="px-4 py-3">
 															<div>
-																<p className="text-white font-medium text-sm">{task.title}</p>
+																<p className="text-[var(--text-primary)] font-medium text-sm">{task.title}</p>
 																<p className="text-slate-500 text-xs truncate max-w-xs">{task.project}</p>
 															</div>
 														</td>
 														<td className="px-4 py-3">
-															<span className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">
+															<span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)]/50 text-slate-300">
 																{task.type}
 															</span>
 														</td>
@@ -777,7 +778,7 @@ const TasksPage: React.FC = () => {
 														</td>
 														<td className="px-4 py-3">
 															<div className="flex items-center gap-2">
-																<div className={`w-6 h-6 rounded-full ${task.assigneeColor} flex items-center justify-center text-white text-[10px] font-bold`}>
+																<div className={`w-6 h-6 rounded-full ${task.assigneeColor} flex items-center justify-center text-[var(--text-primary)] text-[10px] font-bold`}>
 																	{task.assignee.split(" ").map((n) => n[0]).join("")}
 																</div>
 																<span className="text-slate-400 text-xs">{task.assignee}</span>
@@ -786,7 +787,7 @@ const TasksPage: React.FC = () => {
 														<td className="px-4 py-3 text-slate-400 text-xs">{task.dueDate}</td>
 														<td className="px-4 py-3">
 															<div className="flex items-center gap-2">
-																<div className="w-16 bg-slate-700 rounded-full h-1.5">
+																<div className="w-16 bg-[var(--bg-tertiary)] rounded-full h-1.5">
 																	<div
 																		className="bg-blue-500 h-1.5 rounded-full"
 																		style={{ width: `${task.progress}%` }}
@@ -798,7 +799,7 @@ const TasksPage: React.FC = () => {
 														<td className="px-4 py-3">
 															<button
 																onClick={(e) => { e.stopPropagation(); openEditModal(task); }}
-																className="text-slate-400 hover:text-white transition-colors mr-2"
+																className="text-slate-400 hover:text-[var(--text-primary)] transition-colors mr-2"
 															>
 																<FaEdit className="w-4 h-4" />
 															</button>
@@ -813,7 +814,7 @@ const TasksPage: React.FC = () => {
 						)}
 
 						{(activeView === "calendar" || activeView === "my-tasks" || activeView === "reviews") && (
-							<div className="bg-[#1a1d2e] border border-slate-700 rounded-lg p-12 text-center">
+							<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-12 text-center">
 								<FaTasks className="w-12 h-12 text-slate-600 mx-auto mb-3" />
 								<p className="text-slate-400 text-sm">
 									{activeView === "calendar" && "Calendar view is coming soon."}
@@ -826,15 +827,15 @@ const TasksPage: React.FC = () => {
 						{/* ── Bottom Section: Task List Table + Donut + Priority ── */}
 						<div className="grid grid-cols-1 xl:grid-cols-4 gap-6 mt-6">
 							{/* Task List Table */}
-							<div className="xl:col-span-3 bg-[#1a1d2e] border border-slate-700 rounded-lg overflow-hidden">
-								<div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
-									<h3 className="text-sm font-semibold text-white">All Tasks</h3>
+							<div className="xl:col-span-3 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg overflow-hidden">
+								<div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
+									<h3 className="text-sm font-semibold text-[var(--text-primary)]">All Tasks</h3>
 									<span className="text-xs text-slate-500">{filteredTable.length} tasks</span>
 								</div>
 								<div className="overflow-x-auto">
 									<table className="w-full text-sm">
 										<thead>
-											<tr className="text-xs text-slate-500 border-b border-slate-700">
+											<tr className="text-xs text-slate-500 border-b border-[var(--border-default)]">
 												<th className="text-left px-4 py-2.5 font-medium w-8">#</th>
 												<th className="text-left px-4 py-2.5 font-medium">Task</th>
 												<th className="text-left px-4 py-2.5 font-medium">Project</th>
@@ -851,10 +852,10 @@ const TasksPage: React.FC = () => {
 													<tr
 														key={task.id}
 														onClick={() => setSelectedTask(task)}
-														className="border-b border-slate-700/50 hover:bg-slate-800/30 cursor-pointer"
+														className="border-b border-[var(--border-default)]/50 hover:bg-[var(--bg-secondary)]/30 cursor-pointer"
 													>
 														<td className="px-4 py-3 text-slate-500 text-xs">{idx + 1}</td>
-														<td className="px-4 py-3 text-white font-medium text-sm">{task.title}</td>
+														<td className="px-4 py-3 text-[var(--text-primary)] font-medium text-sm">{task.title}</td>
 														<td className="px-4 py-3 text-slate-400 text-xs">{task.project}</td>
 														<td className="px-4 py-3">
 															<span className={`text-xs px-2 py-0.5 rounded-full ${pStyle.bg} ${pStyle.text}`}>
@@ -869,7 +870,7 @@ const TasksPage: React.FC = () => {
 														</td>
 														<td className="px-4 py-3">
 															<div className="flex items-center gap-2">
-																<div className={`w-5 h-5 rounded-full ${task.assigneeColor} flex items-center justify-center text-white text-[9px] font-bold`}>
+																<div className={`w-5 h-5 rounded-full ${task.assigneeColor} flex items-center justify-center text-[var(--text-primary)] text-[9px] font-bold`}>
 																	{task.assignee.split(" ").map((n) => n[0]).join("")}
 																</div>
 																<span className="text-slate-400 text-xs">{task.assignee}</span>
@@ -886,8 +887,8 @@ const TasksPage: React.FC = () => {
 							{/* RIGHT: Donut + Priority Breakdown */}
 							<div className="xl:col-span-1 space-y-6">
 								{/* Task Distribution Donut */}
-								<div className="bg-[#1a1d2e] border border-slate-700 rounded-lg p-4">
-									<h3 className="text-white text-sm font-semibold mb-3">Task Distribution</h3>
+								<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4">
+									<h3 className="text-[var(--text-primary)] text-sm font-semibold mb-3">Task Distribution</h3>
 									<InteractiveDonut
 										segments={[
 											{ label: "Feature", value: 48, color: "#3b82f6" },
@@ -904,8 +905,8 @@ const TasksPage: React.FC = () => {
 								</div>
 
 								{/* Tasks by Priority */}
-								<div className="bg-[#1a1d2e] border border-slate-700 rounded-lg p-4">
-									<h3 className="text-white text-sm font-semibold mb-3">Tasks by Priority</h3>
+								<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4">
+									<h3 className="text-[var(--text-primary)] text-sm font-semibold mb-3">Tasks by Priority</h3>
 									<div className="space-y-3">
 										{[
 											{ label: "Critical", value: tasks.filter((t) => t.priority === "critical").length, color: "#ef4444" },
@@ -923,7 +924,7 @@ const TasksPage: React.FC = () => {
 														</div>
 														<span className="text-slate-400 font-medium">{item.value}</span>
 													</div>
-													<div className="w-full bg-slate-700 rounded-full h-2">
+													<div className="w-full bg-[var(--bg-tertiary)] rounded-full h-2">
 														<div
 															className="h-2 rounded-full transition-all"
 															style={{
@@ -944,14 +945,14 @@ const TasksPage: React.FC = () => {
 					{/* RIGHT: Task Detail Panel */}
 					{selectedTask && (
 						<div className="xl:col-span-1 space-y-0">
-							<div className="bg-[#1a1d2e] border border-slate-700 rounded-lg overflow-hidden">
+							<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg overflow-hidden">
 								{/* Panel Header */}
-								<div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
-									<h3 className="text-white text-sm font-semibold">Task Detail</h3>
+								<div className="px-4 py-3 border-b border-[var(--border-default)] flex items-center justify-between">
+									<h3 className="text-[var(--text-primary)] text-sm font-semibold">Task Detail</h3>
 									<div className="flex items-center gap-1">
 										<button
 											onClick={() => openEditModal(selectedTask)}
-											className="text-slate-400 hover:text-white transition-colors p-1"
+											className="text-slate-400 hover:text-[var(--text-primary)] transition-colors p-1"
 											title="Edit task"
 										>
 											<FaEdit className="w-4 h-4" />
@@ -965,7 +966,7 @@ const TasksPage: React.FC = () => {
 										</button>
 										<button
 											onClick={() => setSelectedTask(null)}
-											className="text-slate-400 hover:text-white transition-colors p-1"
+											className="text-slate-400 hover:text-[var(--text-primary)] transition-colors p-1"
 										>
 											<FaTimes className="w-4 h-4" />
 										</button>
@@ -976,22 +977,22 @@ const TasksPage: React.FC = () => {
 									{/* Project & Sprint */}
 									<div>
 										<p className="text-xs text-slate-500 mb-1">Project</p>
-										<p className="text-sm text-white font-medium">{selectedTask.project}</p>
+										<p className="text-sm text-[var(--text-primary)] font-medium">{selectedTask.project}</p>
 										<p className="text-xs text-slate-400 mt-0.5">Sprint: {selectedTask.sprint}</p>
 									</div>
 
-									<label className="block text-sm text-slate-300">Team *<select aria-label="Task team" className="input-dark w-full" value={formTeamId} onChange={e=>setFormTeamId(e.target.value)}><option value="">Select team</option>{teamOptions.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+									<label className="block text-sm text-slate-300">Team *<select aria-label="Task team" className="input-field w-full" value={formTeamId} onChange={e=>setFormTeamId(e.target.value)}><option value="">Select team</option>{teamOptions.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
  {/* Title */}
 									<div>
 										<p className="text-xs text-slate-500 mb-1">Title</p>
-										<p className="text-sm text-white">{selectedTask.title}</p>
+										<p className="text-sm text-[var(--text-primary)]">{selectedTask.title}</p>
 									</div>
 
 									{/* Assignee */}
 									<div>
 										<p className="text-xs text-slate-500 mb-1">Assignee</p>
 										<div className="flex items-center gap-2">
-											<div className={`w-6 h-6 rounded-full ${selectedTask.assigneeColor} flex items-center justify-center text-white text-[10px] font-bold`}>
+											<div className={`w-6 h-6 rounded-full ${selectedTask.assigneeColor} flex items-center justify-center text-[var(--text-primary)] text-[10px] font-bold`}>
 												{selectedTask.assignee.split(" ").map((n) => n[0]).join("")}
 											</div>
 											<span className="text-sm text-slate-300">{selectedTask.assignee}</span>
@@ -1008,7 +1009,7 @@ const TasksPage: React.FC = () => {
 										</div>
 										<div>
 											<p className="text-xs text-slate-500 mb-1">Type</p>
-											<span className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">
+											<span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-tertiary)]/50 text-slate-300">
 												{selectedTask.type}
 											</span>
 										</div>
@@ -1018,11 +1019,11 @@ const TasksPage: React.FC = () => {
 									<div className="grid grid-cols-2 gap-3">
 										<div>
 											<p className="text-xs text-slate-500 mb-1">Story Points</p>
-											<p className="text-sm text-white font-medium">{selectedTask.storyPoints}</p>
+											<p className="text-sm text-[var(--text-primary)] font-medium">{selectedTask.storyPoints}</p>
 										</div>
 										<div>
 											<p className="text-xs text-slate-500 mb-1">Due Date</p>
-											<p className="text-sm text-white">{selectedTask.dueDate}</p>
+											<p className="text-sm text-[var(--text-primary)]">{selectedTask.dueDate}</p>
 										</div>
 									</div>
 
@@ -1032,7 +1033,7 @@ const TasksPage: React.FC = () => {
 										<select
 											value={selectedTask.status}
 											onChange={(e) => handleStatusChange(selectedTask.id, e.target.value)}
-											className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+											className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 										>
 											{KANBAN_COLUMNS.map((col) => (
 												<option key={col.id} value={col.id}>{col.title}</option>
@@ -1064,7 +1065,7 @@ const TasksPage: React.FC = () => {
 														type="checkbox"
 														checked={ac.done}
 														readOnly
-														className="mt-0.5 w-3.5 h-3.5 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500"
+														className="mt-0.5 w-3.5 h-3.5 rounded border-slate-600 bg-[var(--bg-secondary)] text-blue-500 focus:ring-blue-500"
 													/>
 													<span className={`text-xs ${ac.done ? "text-slate-500 line-through" : "text-slate-300"}`}>
 														{ac.text}
@@ -1092,7 +1093,7 @@ const TasksPage: React.FC = () => {
 														<button
 															key={rid}
 															onClick={() => setSelectedTask(rel)}
-															className="w-full text-left text-xs text-blue-400 hover:text-blue-300 bg-slate-800/50 rounded px-2 py-1.5 transition-colors"
+															className="w-full text-left text-xs text-blue-400 hover:text-blue-300 bg-[var(--bg-secondary)]/50 rounded px-2 py-1.5 transition-colors"
 														>
 															{rel.id}: {rel.title}
 														</button>
@@ -1102,7 +1103,7 @@ const TasksPage: React.FC = () => {
 										</div>
 									)}
 
-									<label className="block text-sm text-slate-300">Assign AI agent<select aria-label="Assign AI agent" className="input-dark w-full" value={tasks.find(t=>t.id===selectedTask.id)?.agentId || ''} onChange={e=>handleAssignTask(selectedTask.id,undefined,e.target.value || undefined)}><option value="">Unassigned</option>{agentOptions.filter(a=>a.member.teamId===tasks.find(t=>t.id===selectedTask.id)?.teamId).map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+									<label className="block text-sm text-slate-300">Assign AI agent<select aria-label="Assign AI agent" className="input-field w-full" value={tasks.find(t=>t.id===selectedTask.id)?.agentId || ''} onChange={e=>handleAssignTask(selectedTask.id,undefined,e.target.value || undefined)}><option value="">Unassigned</option>{agentOptions.filter(a=>a.member.teamId===tasks.find(t=>t.id===selectedTask.id)?.teamId).map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
  {/* Blocked reason */}
 									{selectedTask.blocked && selectedTask.blockedReason && (
 										<div className="bg-red-400/10 border border-red-400/20 rounded-md p-3">
@@ -1123,10 +1124,10 @@ const TasksPage: React.FC = () => {
 			{/* ── Create Task Modal ────────────────────────────────────────── */}
 			{showCreateModal && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-					<div className="bg-[#1a1d2e] border border-slate-700 rounded-xl w-full max-w-lg mx-4 shadow-2xl">
-						<div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
-							<h3 className="text-white font-semibold">Create Task</h3>
-							<button onClick={closeModals} className="text-slate-400 hover:text-white transition-colors">
+					<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl w-full max-w-lg mx-4 shadow-2xl">
+						<div className="px-6 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
+							<h3 className="text-[var(--text-primary)] font-semibold">Create Task</h3>
+							<button onClick={closeModals} className="text-slate-400 hover:text-[var(--text-primary)] transition-colors">
 								<FaTimes className="w-4 h-4" />
 							</button>
 						</div>
@@ -1138,7 +1139,7 @@ const TasksPage: React.FC = () => {
 									type="text"
 									value={formData.title}
 									onChange={(e) => setFormData((f) => ({ ...f, title: e.target.value }))}
-									className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+									className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 									placeholder="Task title"
 								/>
 							</div>
@@ -1148,7 +1149,7 @@ const TasksPage: React.FC = () => {
 								<textarea
 									value={formData.description}
 									onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
-									className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+									className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 resize-none"
 									rows={3}
 									placeholder="Task description"
 								/>
@@ -1160,7 +1161,7 @@ const TasksPage: React.FC = () => {
 									<select
 										value={formData.priority}
 										onChange={(e) => setFormData((f) => ({ ...f, priority: e.target.value as TaskPriority }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 									>
 										{Object.entries(PRIORITY_LABELS).map(([k, v]) => (
 											<option key={k} value={k}>{v}</option>
@@ -1172,7 +1173,7 @@ const TasksPage: React.FC = () => {
 									<select
 										value={formData.type}
 										onChange={(e) => setFormData((f) => ({ ...f, type: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 									>
 										{["Task", "Bug", "Feature", "Chore", "Refactor", "Documentation", "Testing", "Design", "Infrastructure"].map((t) => (
 											<option key={t} value={t}>{teamOptions.find(o=>o.id===t)?.name || t}</option>
@@ -1186,7 +1187,7 @@ const TasksPage: React.FC = () => {
 										min={0}
 										value={formData.storyPoints || ""}
 										onChange={(e) => setFormData((f) => ({ ...f, storyPoints: parseInt(e.target.value) || 0 }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 										placeholder="0"
 									/>
 								</div>
@@ -1198,7 +1199,7 @@ const TasksPage: React.FC = () => {
 									<select
 										value={formData.projectId}
 										onChange={(e) => setFormData((f) => ({ ...f, projectId: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 									>
 										<option value="">Select project</option>
 										{projects.filter((p) => p !== "All Projects").map((p) => (
@@ -1212,7 +1213,7 @@ const TasksPage: React.FC = () => {
 										type="text"
 										value={formData.sprintId}
 										onChange={(e) => setFormData((f) => ({ ...f, sprintId: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 										placeholder="Sprint name"
 									/>
 								</div>
@@ -1222,7 +1223,7 @@ const TasksPage: React.FC = () => {
 										type="date"
 										value={formData.dueDate}
 										onChange={(e) => setFormData((f) => ({ ...f, dueDate: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 									/>
 								</div>
 							</div>
@@ -1232,7 +1233,7 @@ const TasksPage: React.FC = () => {
 								<textarea
 									value={formData.acceptanceCriteria}
 									onChange={(e) => setFormData((f) => ({ ...f, acceptanceCriteria: e.target.value }))}
-									className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+									className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 resize-none"
 									rows={3}
 									placeholder="- First criterion&#10;- Second criterion"
 								/>
@@ -1244,7 +1245,7 @@ const TasksPage: React.FC = () => {
 									id="blocked-create"
 									checked={formData.blocked}
 									onChange={(e) => setFormData((f) => ({ ...f, blocked: e.target.checked }))}
-									className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500"
+									className="w-4 h-4 rounded border-slate-600 bg-[var(--bg-secondary)] text-blue-500 focus:ring-blue-500"
 								/>
 								<label htmlFor="blocked-create" className="text-xs text-slate-300">Blocked</label>
 							</div>
@@ -1255,23 +1256,23 @@ const TasksPage: React.FC = () => {
 										type="text"
 										value={formData.blockedReason}
 										onChange={(e) => setFormData((f) => ({ ...f, blockedReason: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 										placeholder="Why is this blocked?"
 									/>
 								</div>
 							)}
 						</div>
-						<div className="px-6 py-4 border-t border-slate-700 flex items-center justify-end gap-3">
+						<div className="px-6 py-4 border-t border-[var(--border-default)] flex items-center justify-end gap-3">
 							<button
 								onClick={closeModals}
-								className="text-sm text-slate-400 hover:text-white px-4 py-2 transition-colors"
+								className="text-sm text-slate-400 hover:text-[var(--text-primary)] px-4 py-2 transition-colors"
 							>
 								Cancel
 							</button>
 							<button
 								onClick={handleCreateTask}
 								disabled={submitting || !formData.title.trim()}
-								className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+								className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 							>
 								{submitting && <FaSpinner className="w-3 h-3 animate-spin" />}
 								Create Task
@@ -1284,10 +1285,10 @@ const TasksPage: React.FC = () => {
 			{/* ── Edit Task Modal ──────────────────────────────────────────── */}
 			{showEditModal && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-					<div className="bg-[#1a1d2e] border border-slate-700 rounded-xl w-full max-w-lg mx-4 shadow-2xl">
-						<div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
-							<h3 className="text-white font-semibold">Edit Task</h3>
-							<button onClick={closeModals} className="text-slate-400 hover:text-white transition-colors">
+					<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl w-full max-w-lg mx-4 shadow-2xl">
+						<div className="px-6 py-4 border-b border-[var(--border-default)] flex items-center justify-between">
+							<h3 className="text-[var(--text-primary)] font-semibold">Edit Task</h3>
+							<button onClick={closeModals} className="text-slate-400 hover:text-[var(--text-primary)] transition-colors">
 								<FaTimes className="w-4 h-4" />
 							</button>
 						</div>
@@ -1299,7 +1300,7 @@ const TasksPage: React.FC = () => {
 									type="text"
 									value={formData.title}
 									onChange={(e) => setFormData((f) => ({ ...f, title: e.target.value }))}
-									className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+									className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 								/>
 							</div>
 							{/* Description */}
@@ -1308,7 +1309,7 @@ const TasksPage: React.FC = () => {
 								<textarea
 									value={formData.description}
 									onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
-									className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+									className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 resize-none"
 									rows={3}
 								/>
 							</div>
@@ -1319,7 +1320,7 @@ const TasksPage: React.FC = () => {
 									<select
 										value={formData.priority}
 										onChange={(e) => setFormData((f) => ({ ...f, priority: e.target.value as TaskPriority }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 									>
 										{Object.entries(PRIORITY_LABELS).map(([k, v]) => (
 											<option key={k} value={k}>{v}</option>
@@ -1331,7 +1332,7 @@ const TasksPage: React.FC = () => {
 									<select
 										value={formData.type}
 										onChange={(e) => setFormData((f) => ({ ...f, type: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 									>
 										{["Task", "Bug", "Feature", "Chore", "Refactor", "Documentation", "Testing", "Design", "Infrastructure"].map((t) => (
 											<option key={t} value={t}>{teamOptions.find(o=>o.id===t)?.name || t}</option>
@@ -1345,7 +1346,7 @@ const TasksPage: React.FC = () => {
 										min={0}
 										value={formData.storyPoints || ""}
 										onChange={(e) => setFormData((f) => ({ ...f, storyPoints: parseInt(e.target.value) || 0 }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 									/>
 								</div>
 							</div>
@@ -1356,7 +1357,7 @@ const TasksPage: React.FC = () => {
 									<select
 										value={formData.projectId}
 										onChange={(e) => setFormData((f) => ({ ...f, projectId: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500"
 									>
 										<option value="">Select project</option>
 										{projects.filter((p) => p !== "All Projects").map((p) => (
@@ -1370,7 +1371,7 @@ const TasksPage: React.FC = () => {
 										type="text"
 										value={formData.sprintId}
 										onChange={(e) => setFormData((f) => ({ ...f, sprintId: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 									/>
 								</div>
 								<div>
@@ -1379,7 +1380,7 @@ const TasksPage: React.FC = () => {
 										type="date"
 										value={formData.dueDate}
 										onChange={(e) => setFormData((f) => ({ ...f, dueDate: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 									/>
 								</div>
 							</div>
@@ -1389,7 +1390,7 @@ const TasksPage: React.FC = () => {
 								<textarea
 									value={formData.acceptanceCriteria}
 									onChange={(e) => setFormData((f) => ({ ...f, acceptanceCriteria: e.target.value }))}
-									className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+									className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500 resize-none"
 									rows={3}
 								/>
 							</div>
@@ -1400,7 +1401,7 @@ const TasksPage: React.FC = () => {
 									id="blocked-edit"
 									checked={formData.blocked}
 									onChange={(e) => setFormData((f) => ({ ...f, blocked: e.target.checked }))}
-									className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500"
+									className="w-4 h-4 rounded border-slate-600 bg-[var(--bg-secondary)] text-blue-500 focus:ring-blue-500"
 								/>
 								<label htmlFor="blocked-edit" className="text-xs text-slate-300">Blocked</label>
 							</div>
@@ -1411,22 +1412,22 @@ const TasksPage: React.FC = () => {
 										type="text"
 										value={formData.blockedReason}
 										onChange={(e) => setFormData((f) => ({ ...f, blockedReason: e.target.value }))}
-										className="w-full bg-[#111827] border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+										className="w-full bg-[var(--surface-input)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-blue-500"
 									/>
 								</div>
 							)}
 						</div>
-						<div className="px-6 py-4 border-t border-slate-700 flex items-center justify-end gap-3">
+						<div className="px-6 py-4 border-t border-[var(--border-default)] flex items-center justify-end gap-3">
 							<button
 								onClick={closeModals}
-								className="text-sm text-slate-400 hover:text-white px-4 py-2 transition-colors"
+								className="text-sm text-slate-400 hover:text-[var(--text-primary)] px-4 py-2 transition-colors"
 							>
 								Cancel
 							</button>
 							<button
 								onClick={handleUpdateTask}
 								disabled={submitting || !formData.title.trim()}
-								className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+								className="bg-blue-600 hover:bg-blue-500 text-[var(--text-primary)] text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 							>
 								{submitting && <FaSpinner className="w-3 h-3 animate-spin" />}
 								Save Changes

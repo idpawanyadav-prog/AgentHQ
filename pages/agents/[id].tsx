@@ -1,3 +1,4 @@
+import {onDashboardChange} from '@/lib/socket-client';
 import React from "react";
 import { useRouter } from "next/router";
 import type { Agent, Activity, Member } from "@/types";
@@ -61,8 +62,8 @@ const AgentProgress: React.FC = () => {
  }
 
  loadData();
- const timer = setInterval(loadData, 2000);
- return () => { cancelled = true; clearInterval(timer); };
+ const unsubscribe = onDashboardChange(loadData);
+ return () => { cancelled = true; unsubscribe(); };
  }, [id]);
 
  const handleNavigate = (_navId: string) => {

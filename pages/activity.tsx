@@ -1,3 +1,4 @@
+import {onDashboardChange} from '@/lib/socket-client';
 import React, { useEffect, useState } from "react";
 import api from "@/lib/api-client";
 import type { Activity } from "@/types";
@@ -17,8 +18,8 @@ export default function ActivityPage() {
   let active = true;
   const refresh = () => api.getActivities().then(data => { if(active) {setActivities(data); setError('');} }).catch(e => active && setError(e.message));
   refresh();
-  const timer = live ? setInterval(refresh, 2000) : undefined;
-  return () => { active = false; clearInterval(timer); };
+  const unsubscribe = live ? onDashboardChange(refresh) : () => {};
+  return () => { active = false; unsubscribe(); };
  }, [live]);
 	const handleNavigate = (item: string) => {
 		const navHref: Record<string, string> = {
@@ -39,12 +40,12 @@ export default function ActivityPage() {
  <div className="space-y-6">
  <div className="flex items-center gap-2 mb-2">
  <FaStream className="text-blue-400" />
- <h1 className="text-3xl font-bold text-white">Activity</h1>
+ <h1 className="text-3xl font-bold text-[var(--text-primary)]">Activity</h1>
  </div>
  <p className="text-slate-400">Real-time feed of team and agent activity across all projects.</p>
- <div className="bg-[#1a1d2e] border border-slate-700 rounded-lg overflow-hidden">
- <div className="px-4 py-3 border-b border-slate-700">
- <h2 className="text-lg font-semibold text-white">Live Activity Feed</h2>
+ <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg overflow-hidden">
+ <div className="px-4 py-3 border-b border-[var(--border-default)]">
+ <h2 className="text-lg font-semibold text-[var(--text-primary)]">Live Activity Feed</h2>
  </div>
  <div className="p-4">
  {error && <p role="alert" className="text-red-400">{error}</p>}

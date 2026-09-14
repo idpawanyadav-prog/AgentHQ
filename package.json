@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Web-based dashboard to manage teams, tasks, and AI agents from one screen",
   "scripts": {
-    "dev": "concurrently \"next dev --port 3000\" \"nodemon server/index.js\"",
+    "dev": "concurrently \"next dev --port 3000\" \"nodemon server/index.js\" \"tsx server/worker.ts\"",
     "dev:next": "next dev --port 3000",
     "dev:server": "nodemon server/index.js",
     "build": "next build",
-    "start": "next start",
+    "start": "node server/start.cjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
@@ -15,7 +15,19 @@
     "db:seed": "tsx prisma/seed.ts",
     "lint": "next lint",
     "test": "jest --runInBand",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:unit": "jest --runInBand",
+    "test:coverage": "jest --coverage --runInBand",
+    "verify": "jest --runInBand && tsc --noEmit && next lint",
+    "dev:worker": "tsx server/worker.ts",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:delete": "pm2 delete ecosystem.config.js",
+    "pm2:logs": "pm2 logs",
+    "start:next": "next start",
+    "test:integration": "node tests/integration.cjs",
+    "setup:token": "tsx server/setup.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.25.0",
@@ -26,13 +38,13 @@
     "@octokit/rest": "^21.0.0",
     "@prisma/client": "^5.15.0",
     "axios": "^1.7.0",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "next": "^14.2.0",
+    "next": "^15.5.25",
     "next-auth": "^4.24.6",
     "openai": "^4.38.0",
     "prisma": "^5.15.0",
@@ -41,6 +53,7 @@
     "react-icons": "^4.12.0",
     "socket.io": "^4.7.4",
     "socket.io-client": "^4.7.4",
+    "tsx": "^4.23.13",
     "zod": "^3.23.0",
     "zustand": "^4.5.0"
   },
@@ -58,14 +71,17 @@
     "autoprefixer": "^10.4.19",
     "concurrently": "^8.2.2",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0",
+    "eslint-config-next": "^15.5.25",
     "jest": "^30.5.1",
     "jest-environment-jsdom": "^30.5.1",
     "nodemon": "^3.1.4",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.0",
-    "ts-jest": "^29.4.12",
-    "tsx": "^4.23.13",
     "typescript": "^5.4.0"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.28"
+    }
   }
 }

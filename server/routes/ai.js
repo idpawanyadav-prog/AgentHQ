@@ -5,6 +5,7 @@ const OpenAI = require('openai');
 const prisma = require('../prisma');
 const { broadcastActivity, broadcastAgentStatus } = require('../socket');
 const { createRateLimiter } = require('../middleware/rateLimit');
+const { validate, aiProxySchema } = require('../middleware/validate');
 
 const rateLimiter = createRateLimiter({ maxRequests: 60, windowMs: 60_000 });
 
@@ -15,13 +16,9 @@ function withAuth(req, res, next) {
 router.use('/proxy', withAuth, rateLimiter);
 
 // ─── AI Proxy (Anthropic + OpenAI) ───────────────────────────────────────────
-router.post('/proxy', async (req, res) => {
+router.post('/proxy', validate(aiProxySchema), async (req, res) => {
  try {
  const { provider, model, messages, system, agentId, taskId, maxTokens, temperature } = req.body;
-
- if (!provider || !messages || !Array.isArray(messages) || messages.length === 0) {
- return res.status(400).json({ error: 'provider and messages[] are required' });
- }
 
  const anthropicKey = process.env.ANTHROPIC_API_KEY;
  const openaiKey = process.env.OPENAI_API_KEY;

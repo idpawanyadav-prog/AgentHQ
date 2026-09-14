@@ -5,7 +5,7 @@ import prisma from '../../lib/prisma';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
  if (req.method === 'GET') {
- const settings = await prisma.setting.findMany({where:{key:{not:"dashboard_auth"}}});
+ const settings = await prisma.setting.findMany({where:{AND:[{key:{notIn:["dashboard_auth","dashboard_setup_token"]}},{key:{not:{startsWith:"auth_rate:"}}}]}});
  const map: Record<string, string> = {};
  settings.forEach((s) => { map[s.key] = s.value; });
  res.status(200).json(map);
@@ -13,7 +13,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  const body = req.body;
  if (!body || typeof body !== 'object') return res.status(400).json({ error: 'Invalid body' });
  const entries = Object.entries(body);
- if (entries.some(([key]) => !['ai_rate_limit_max','ai_rate_limit_window_ms','default_anthropic_model','default_openai_model'].includes(key))) return res.status(400).json({error:'Unknown setting'});
+ if (entries.some(([key]) => !['ai_rate_limit_max','ai_rate_limit_window_ms','default_anthropic_model','default_openai_model','org_name','org_timezone','org_currency','theme','notifications','date_format','auto_refresh','show_onboarding'].includes(key))) return res.status(400).json({error:'Unknown setting'});
  const results: Record<string, unknown> = {};
  for (const [key, value] of entries) {
  const strVal = typeof value === 'string' ? value : JSON.stringify(value);

@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const { withAuth } = require('../middleware/auth');
+const { broadcastActivity } = require('../socket');
+const { validate, createProjectSchema, updateProjectSchema, updateMilestoneSchema, createMilestoneSchema } = require('../middleware/validate');
 
 const prisma = new PrismaClient();
+router.use(withAuth);
 
 // GET /api/projects - List all projects
 router.get('/', async (req, res) => {
@@ -42,7 +46,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/projects - Create new project
-router.post('/', async (req, res) => {
+router.post('/', validate(createProjectSchema), async (req, res) => {
  try {
  const { name, description, teamId, repoUrl } = req.body;
 
@@ -62,6 +66,12 @@ router.post('/', async (req, res) => {
  milestones: true,
  },
  });
+ broadcastActivity({
+ id: project.id,
+ teamId,
+ type: 'project.created',
+ description: `Project "${name}" created`,
+ });
  res.status(201).json(project);
  } catch (error) {
  console.error('Error creating project:', error);
@@ -70,7 +80,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/projects/:id - Update project
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(updateProjectSchema), async (req, res) => {
  try {
  const { name, description, status, progress, repoUrl } = req.body;
  const project = await prisma.project.update({
@@ -86,6 +96,12 @@ router.put('/:id', async (req, res) => {
  team: true,
  milestones: true,
  },
+ });
+ broadcastActivity({
+ id: project.id,
+ teamId: project.teamId,
+ type: 'project.updated',
+ description: `Project "${name}" updated`,
  });
  res.json(project);
  } catch (error) {
@@ -106,7 +122,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST /api/projects/:id/milestones - Add milestone to project
-router.post('/:id/milestones', async (req, res) => {
+router.post('/:id/milestones', validate(createMilestoneSchema), async (req, res) => {
  try {
  const { title, order = 0 } = req.body;
  const milestone = await prisma.milestone.create({
@@ -124,7 +140,7 @@ router.post('/:id/milestones', async (req, res) => {
 });
 
 // PATCH /api/projects/milestones/:id - Update milestone status
-router.patch('/milestones/:id', async (req, res) => {
+router.patch('/milestones/:id', validate(updateMilestoneSchema), async (req, res) => {
  try {
  const { status } = req.body;
  const milestone = await prisma.milestone.update({

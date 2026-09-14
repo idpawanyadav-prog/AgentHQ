@@ -6,10 +6,10 @@ let io = null;
  * Initialize Socket.io on the given HTTP server.
  *
  * Channels:
- * - `activity:<teamId>` — team-scoped activity feed updates
+ * - `team:<teamId>` — team-scoped activity / task / agent updates
  * - `agent:<agentId>` — single-agent status / output updates
  * - `task:<taskId>` — task-scoped events
- * - `system` — global system events (settings changes, errors)
+ * - `admin` — global admin dashboard updates
  */
 function initSocketServer(httpServer, options = {}) {
  io = new Server(httpServer, {
@@ -27,9 +27,8 @@ function initSocketServer(httpServer, options = {}) {
  io.on('connection', (socket) => {
  const { userId, teamId } = socket.handshake.auth || {};
 
- if (teamId) {
- socket.join(`team:${teamId}`);
- }
+ if (teamId) socket.join(`team:${teamId}`);
+ socket.join('admin');
 
  socket.on('join:team', (incomingTeamId) => {
  if (typeof incomingTeamId === 'string' && incomingTeamId.length > 0) {
@@ -39,9 +38,7 @@ function initSocketServer(httpServer, options = {}) {
  });
 
  socket.on('leave:team', (incomingTeamId) => {
- if (typeof incomingTeamId === 'string') {
- socket.leave(`team:${incomingTeamId}`);
- }
+ if (typeof incomingTeamId === 'string') socket.leave(`team:${incomingTeamId}`);
  });
 
  socket.on('join:agent', (agentId) => {
@@ -60,10 +57,7 @@ function initSocketServer(httpServer, options = {}) {
  if (typeof taskId === 'string') socket.leave(`task:${taskId}`);
  });
 
- socket.on('disconnect', (reason) => {
- // Reserved for telemetry / cleanup later.
- void reason;
- });
+ socket.on('disconnect', (reason) => { void reason; });
 
  // Echo for client-side heartbeat checks
  socket.on('ping', (ts, ack) => {
@@ -77,15 +71,12 @@ function initSocketServer(httpServer, options = {}) {
 }
 
 function getIO() {
- if (!io) {
- throw new Error('Socket.io has not been initialized — call initSocketServer first.');
- }
+ if (!io) throw new Error('Socket.io has not been initialized — call initSocketServer first.');
  return io;
 }
 
 /**
  * Broadcast a new activity event to the team channel.
- * @param {object} activity - Prisma Activity row (or its public projection).
  */
 function broadcastActivity(activity) {
  if (!io) return;
@@ -100,6 +91,7 @@ function broadcastActivity(activity) {
  createdAt: activity.createdAt,
  };
  io.to(`team:${activity.teamId}`).emit('activity:new', payload);
+ io.to('admin').emit('activity:new', payload);
 }
 
 /**
@@ -112,14 +104,14 @@ function broadcastAgentStatus(agent) {
  status: agent.status,
  updatedAt: agent.updatedAt,
  });
- // Also publish to the parent team channel if known
- if (agent.member?.teamId) {
+ if (agent.member && agent.member.teamId) {
  io.to(`team:${agent.member.teamId}`).emit('agent:status', {
  agentId: agent.id,
  status: agent.status,
  updatedAt: agent.updatedAt,
  });
  }
+ io.to('admin').emit('agent:status', { agentId: agent.id, status: agent.status });
 }
 
 /**
@@ -138,6 +130,7 @@ function broadcastTaskUpdate(task) {
  };
  if (task.teamId) io.to(`team:${task.teamId}`).emit('task:updated', payload);
  io.to(`task:${task.id}`).emit('task:updated', payload);
+ io.to('admin').emit('task:updated', payload);
 }
 
 module.exports = {

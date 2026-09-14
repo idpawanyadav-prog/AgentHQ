@@ -1,12 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
+const { broadcastActivity } = require('../socket');
+const { withAuth } = require('../middleware/auth');
+const { validate, createTeamSchema, updateTeamSchema } = require('../middleware/validate');
 
 // All routes are protected — require authenticated user
-function withAuth(req, res, next) {
- if (!req.user) return res.status(401).json({ error: 'Authentication required' });
- return next();
-}
 router.use(withAuth);
 
 // ─── List all teams ────────────────────────────────────────────────────────────
@@ -35,7 +34,7 @@ router.get('/:id', async (req, res) => {
  tasks: {
  include: {
  assignee: { select: { id: true, name: true, type: true } },
- agent: { select: { id: true, name: true, type: true, model: true } },
+ agent: { select: { id: true, name: true, type: true, model: true, status: true } },
  },
  orderBy: { status: 'asc' },
  },
@@ -50,18 +49,13 @@ router.get('/:id', async (req, res) => {
 });
 
 // ─── Create a team ────────────────────────────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', validate(createTeamSchema), async (req, res) => {
  try {
  const { name, description, status } = req.body;
-
- if (!name || !name.trim()) {
- return res.status(400).json({ error: 'Team name is required' });
- }
-
  const team = await prisma.team.create({
  data: {
- name: name.trim(),
- description: description?.trim() || null,
+ name,
+ description: description || null,
  status: status || 'active',
  },
  include: {
@@ -69,7 +63,6 @@ router.post('/', async (req, res) => {
  _count: { select: { members: true, tasks: true } },
  },
  });
-
  res.status(201).json(team);
  } catch (err) {
  console.error('[Create Team]', err);
@@ -78,23 +71,16 @@ router.post('/', async (req, res) => {
 });
 
 // ─── Update a team ────────────────────────────────────────────────────────────
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(updateTeamSchema), async (req, res) => {
  try {
- const { name, description, status } = req.body;
-
  const team = await prisma.team.update({
  where: { id: req.params.id },
- data: {
- ...(name !== undefined && { name: name.trim() }),
- ...(description !== undefined && { description: description?.trim() || null }),
- ...(status !== undefined && { status }),
- },
+ data: req.body,
  include: {
  members: true,
  _count: { select: { members: true, tasks: true } },
  },
  });
-
  res.json(team);
  } catch (err) {
  if (err.code === 'P2025') return res.status(404).json({ error: 'Team not found' });

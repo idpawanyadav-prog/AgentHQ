@@ -1,0 +1,41 @@
+module.exports = {
+ apps: [
+ {name:"agenthq-realtime",script:"./server/index.js",cwd:__dirname,env:{NODE_ENV:"production",PORT:"4000"}},
+ {
+ name: 'agenthq-web',
+ script: './node_modules/next/dist/bin/next',
+ args: 'start -p 3000',
+ cwd: __dirname,
+ instances: 1,
+ exec_mode: 'fork',
+ env: {
+ NODE_ENV: 'production',
+ PORT: '3000',
+ },
+ error_file: './logs/next-error.log',
+ out_file: './logs/next-out.log',
+ log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+ autorestart: true,
+ max_restarts: 10,
+ restart_delay: 4000,
+ },
+ {
+ name: 'agenthq-worker',
+ script: './node_modules/tsx/dist/cli.mjs',
+ args: 'server/worker.ts',
+ cwd: __dirname,
+ instances: 1,
+ exec_mode: 'fork',
+ env: {
+ NODE_ENV: 'production',
+ PORT: '4000',
+ },
+ error_file: './logs/worker-error.log',
+ out_file: './logs/worker-out.log',
+ log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+ autorestart: true,
+ max_restarts: 10,
+ restart_delay: 4000,
+ },
+ ],
+};

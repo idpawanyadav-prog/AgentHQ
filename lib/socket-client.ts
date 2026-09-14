@@ -84,3 +84,10 @@ export function onCIUpdate(fn: (data: { taskId: string; ciStatus: CIStatus }) =>
 
 // ─── Internal bookkeeping ────────────────────────────────────────────
 
+
+export function onDashboardChange(refresh:()=>void) {
+ const socket=getSocket();
+ socket.on('connect',refresh);
+ socket.on('data:changed',refresh);
+ return ()=>{socket.off('connect',refresh);socket.off('data:changed',refresh);};
+}

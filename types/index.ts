@@ -298,6 +298,8 @@ export interface StoredSettings {
 // ─── Socket Events ───────────────────────────────────────────────────
 
 export interface ServerToClientEvents {
+ "data:changed": () => void;
+ "job:updated": (data:{jobId:string;status:string;error?:string})=>void;
  "activity:new": (activity: Activity) => void;
  "agent:status": (data: { agentId: string; status: AgentStatus }) => void;
  "task:updated": (task: Task) => void;
