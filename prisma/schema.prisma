@@ -1,0 +1,185 @@
+generator client {
+ provider = "prisma-client-js"
+}
+
+datasource db {
+ provider = "sqlite"
+ url = env("DATABASE_URL")
+}
+
+model Team {
+ id String @id @default(cuid())
+ name String
+ description String?
+ status String @default("active") // active | paused | archived
+ project Project?
+ members Member[]
+ tasks Task[]
+ activities Activity[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([status])
+}
+
+model Member {
+ id String @id @default(cuid())
+ name String
+ role String // PM, Dev, QA, Reviewer, Tester
+ type String // "human" | "ai"
+ avatar String?
+ teamId String
+ team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+ tasks Task[]
+ agents Agent[]
+ activities Activity[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([teamId])
+ @@index([type])
+}
+
+model Agent {
+ id String @id @default(cuid())
+ name String // "Claude Dev #1"
+ type String // "anthropic" | "openai"
+ model String // "claude-sonnet-4-5" | "gpt-4o"
+ memberId String
+ member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+ tasks Task[]
+ config String // JSON: { temperature, maxTokens, systemPrompt, tools }
+ status String @default("idle") // idle | working | error
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([memberId])
+ @@index([status])
+}
+
+model Project {
+ id String @id @default(cuid())
+ name String
+ description String?
+ status String @default("active")
+ progress Int @default(0) // 0-100
+ teamId String @unique
+ team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+ milestones Milestone[]
+ sprints Sprint[]
+ tasks Task[]
+ repoUrl String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([teamId])
+}
+
+model Milestone {
+ id String @id @default(cuid())
+ title String
+ status String @default("pending") // pending | in_progress | done
+ order Int
+ projectId String
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([projectId])
+}
+
+model Sprint {
+ id String @id @default(cuid())
+ name String
+ goal String?
+ status String @default("planned") // planned | active | completed
+ startDate DateTime?
+ endDate DateTime?
+ order Int @default(0)
+ projectId String
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ tasks Task[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([projectId])
+}
+
+model Task {
+ id String @id @default(cuid())
+ title String
+ description String?
+ type String @default("task") // task | bug | feature | chore
+ priority String @default("medium") // low | medium | high | critical
+ status String @default("backlog") // backlog | ready | in_progress | review | testing | done | blocked
+ teamId String
+ team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+ projectId String?
+ project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ sprintId String?
+ sprint Sprint? @relation(fields: [sprintId], references: [id])
+ assigneeId String?
+ assignee Member? @relation(fields: [assigneeId], references: [id])
+ agentId String?
+ agent Agent? @relation(fields: [agentId], references: [id])
+ branch String? // git branch for this task
+ prNumber Int? // GitHub PR number
+ dependencies String // JSON array of task IDs
+ storyPoints Int? // 1, 2, 3, 5, 8, 13...
+ dueDate DateTime?
+ acceptanceCriteria String?
+ blocked Boolean @default(false)
+ blockedReason String?
+ activities Activity[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([teamId])
+ @@index([projectId])
+ @@index([sprintId])
+ @@index([status])
+ @@index([priority])
+ @@index([agentId])
+ @@index([assigneeId])
+}
+
+model Activity {
+ id String @id @default(cuid())
+ type String // "task_assigned" | "commit" | "pr_opened" | "pr_merged" | "agent_started" | "agent_completed" | etc.
+ description String
+ meta String // JSON string
+ teamId String
+ team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+ memberId String?
+ member Member? @relation(fields: [memberId], references: [id])
+ taskId String?
+ task Task? @relation(fields: [taskId], references: [id])
+ createdAt DateTime @default(now())
+
+ @@index([teamId, createdAt])
+ @@index([type])
+ @@index([taskId])
+}
+
+model Setting {
+ id String @id @default(cuid())
+ key String @unique
+ value String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+}
+
+model Gateway {
+ id String @id @default(cuid())
+ name String
+ provider String // "anthropic" | "openai" | "custom"
+ baseUrl String?
+ apiKey String // encrypted in production; base64 for now
+ model String
+ isDefault Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([provider])
+ @@index([isDefault])
+}
