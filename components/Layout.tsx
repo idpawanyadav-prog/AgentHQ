@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
@@ -16,6 +16,9 @@ import {
 	FaCog,
 	FaBell,
 	FaChevronDown,
+	FaBars,
+	FaAngleDoubleLeft,
+	FaAngleDoubleRight,
 } from "react-icons/fa";
 
 const SIDEBAR_NAV_ITEMS = [
@@ -44,51 +47,174 @@ export default function Layout({ children, activeNav }: LayoutProps) {
 	const [showNotifications, setShowNotifications] = useState(false);
 	const [showNav, setShowNav] = useState(false);
 	const [showUserMenu, setShowUserMenu] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+	const toggleSidebar = useCallback(() => {
+		setSidebarCollapsed((prev) => !prev);
+	}, []);
 
 	return (
 		<div className="min-h-screen flex transition-colors duration-200" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
+			{/* Mobile overlay */}
+			{showNav && (
+				<div
+					className="fixed inset-0 bg-black/50 z-30 md:hidden"
+					onClick={() => setShowNav(false)}
+				/>
+			)}
+
 			<aside
-				className={"sidebar-dark " + (showNav ? "flex fixed z-40" : "hidden") + " md:flex md:sticky w-60 flex-col flex-shrink-0 h-screen top-0"}
+				className={
+					"sidebar-dark flex flex-col h-screen sticky top-0 z-40 transition-all duration-300 flex-shrink-0 " +
+					(sidebarCollapsed ? "w-16" : "w-60") +
+					(showNav
+						? " fixed inset-y-0 left-0 flex"
+						: " hidden md:flex")
+				}
 			>
-				<button onClick={() => setShowNav(false)} className="md:hidden p-3" style={{ color: "var(--text-primary)" }}>Close navigation</button>
-				<div className="p-4" style={{ borderBottom: "1px solid var(--sidebar-border)" }}>
-					<h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>Organization</h2>
+				{/* Mobile close button */}
+				<button
+					onClick={() => setShowNav(false)}
+					className="md:hidden p-3 self-end"
+					style={{ color: "var(--text-primary)" }}
+					aria-label="Close navigation"
+				>
+					<FaBars className="w-5 h-5 rotate-90" />
+				</button>
+
+				{/* Logo */}
+				<div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"} px-4 py-4`}>
+					<div className="w-8 h-8 rounded-lg bg-[#3b82f6] flex items-center justify-center flex-shrink-0">
+						<svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+							<path d="M12 2L2 7l10 5 10-5-10-5z" />
+							<path d="M2 17l10 5 10-5" />
+							<path d="M2 12l10 5 10-5" />
+						</svg>
+					</div>
+					{!sidebarCollapsed && (
+						<div>
+							<h1 className="text-sm font-bold text-white leading-tight">Agent Office</h1>
+							<p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>Dashboard</p>
+						</div>
+					)}
 				</div>
 
-				<nav className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-0.5">
-					{SIDEBAR_NAV_ITEMS.map((item) => {
-						const Icon = item.icon;
-						const isActive = activeNav ? activeNav === item.id : router.pathname === item.href;
+				{/* Navigation */}
+				<nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-2">
+					{!sidebarCollapsed && (
+						<div className="px-3 mb-2">
+							<p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+								Organization
+							</p>
+						</div>
+					)}
+					<div className="space-y-0.5">
+						{SIDEBAR_NAV_ITEMS.map((item) => {
+							const Icon = item.icon;
+							const isActive = activeNav ? activeNav === item.id : router.pathname === item.href;
 
-						return (
-							<Link
-								key={item.id}
-								href={item.href}
-								aria-current={isActive ? "page" : undefined}
-								className="sidebar-nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150"
-								style={{
-									backgroundColor: isActive ? "var(--active-bg)" : "transparent",
-									color: isActive ? "var(--active-text)" : "var(--text-secondary)",
-								}}
-								onMouseEnter={(e) => {
-									if (!isActive) e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-								}}
-								onMouseLeave={(e) => {
-									if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
-								}}
-							>
-								<Icon className="w-4 h-4 flex-shrink-0" />
-								{item.label}
-							</Link>
-						);
-					})}
+							return (
+								<div key={item.id} className="relative group">
+									<Link
+										href={item.href}
+										aria-current={isActive ? "page" : undefined}
+										className={
+											"flex items-center gap-3 rounded-lg text-sm transition-colors duration-150 " +
+											(sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2")
+										}
+										style={{
+											backgroundColor: isActive ? "var(--active-bg)" : "transparent",
+											color: isActive ? "var(--active-text)" : "var(--text-secondary)",
+										}}
+										onMouseEnter={(e) => {
+											if (!isActive) e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+										}}
+										onMouseLeave={(e) => {
+											if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
+										}}
+										onClick={() => setShowNav(false)}
+									>
+										<Icon className="w-5 h-5 flex-shrink-0" />
+										{!sidebarCollapsed && <span>{item.label}</span>}
+									</Link>
+
+									{/* Tooltip for collapsed mode */}
+									{sidebarCollapsed && (
+										<div
+											className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-white opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50"
+											style={{ backgroundColor: "var(--bg-tertiary)", border: "1px solid var(--border-strong)" }}
+										>
+											{item.label}
+										</div>
+									)}
+								</div>
+							);
+						})}
+					</div>
+
+					{/* Divider + Bottom section */}
+					<div className="mt-6 pt-4" style={{ borderTop: "1px solid var(--sidebar-border)" }}>
+						{!sidebarCollapsed && (
+							<p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+								Resources
+							</p>
+						)}
+						<div className="space-y-0.5">
+							{[{name:"Frontend Squad",href:"/teams"},{name:"Backend Squad",href:"/teams"}].map((team) => (
+								<Link
+									key={team.name}
+									href={team.href}
+									className={
+										"flex items-center gap-3 rounded-lg text-sm transition-colors duration-150 " +
+										(sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2")
+									}
+									onClick={() => setShowNav(false)}
+									onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
+									onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+								>
+									<span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] flex-shrink-0" />
+									{!sidebarCollapsed && <span style={{ color: "var(--text-secondary)" }}>{team.name}</span>}
+								</Link>
+							))}
+						</div>
+					</div>
 				</nav>
 
+				{/* Footer + Collapse Toggle */}
 				<div className="p-3" style={{ borderTop: "1px solid var(--sidebar-border)" }}>
-					<div className="flex flex-col items-center text-center py-4">
-						<p className="text-[11px] italic leading-relaxed" style={{ color: "var(--text-tertiary)" }}>
-							&ldquo;A company of AI agents building a better tomorrow.&rdquo;
-						</p>
+					<div className="flex flex-col items-center">
+						{!sidebarCollapsed && (
+							<p className="text-[11px] text-center mb-2" style={{ color: "var(--text-tertiary)" }}>
+								v0.1.0 &middot; Phase 1
+							</p>
+						)}
+						<button
+							onClick={toggleSidebar}
+							className={
+								"flex items-center justify-center gap-2 rounded-lg text-sm transition-colors duration-150 w-full " +
+								(sidebarCollapsed ? "py-2.5" : "py-2 px-3")
+							}
+							style={{ color: "var(--text-secondary)" }}
+							onMouseEnter={(e) => {
+								e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+								e.currentTarget.style.color = "var(--text-primary)";
+							}}
+							onMouseLeave={(e) => {
+								e.currentTarget.style.backgroundColor = "transparent";
+								e.currentTarget.style.color = "var(--text-secondary)";
+							}}
+							aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+							title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+						>
+							{sidebarCollapsed ? (
+								<FaAngleDoubleRight className="w-4 h-4" />
+							) : (
+								<>
+									<FaAngleDoubleLeft className="w-4 h-4" />
+									<span className="text-xs">Collapse</span>
+								</>
+							)}
+						</button>
 					</div>
 				</div>
 			</aside>
@@ -99,7 +225,14 @@ export default function Layout({ children, activeNav }: LayoutProps) {
 					style={{ borderBottom: "1px solid var(--border-default)" }}
 				>
 					<div className="flex items-center gap-3">
-						<button aria-label="Open navigation" onClick={() => setShowNav(true)} className="md:hidden" style={{ color: "var(--text-primary)" }}>Menu</button>
+						<button
+							aria-label="Open navigation"
+							onClick={() => setShowNav(true)}
+							className="md:hidden"
+							style={{ color: "var(--text-primary)" }}
+						>
+							<FaBars className="w-5 h-5" />
+						</button>
 						<svg width="36" height="36" viewBox="0 0 40 40" fill="none">
 							<circle cx="20" cy="20" r="4" fill="#3b82f6" opacity="0.9" />
 							<ellipse cx="20" cy="9" rx="6" ry="9" fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.7" />
