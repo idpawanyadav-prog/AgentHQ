@@ -100,7 +100,7 @@ export default function Layout({ children, activeNav }: LayoutProps) {
 				</div>
 
 				{/* Navigation */}
-				<nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-2">
+				<nav className={"flex-1 overflow-y-auto scrollbar-thin px-3 py-2 " + (sidebarCollapsed ? "scrollbar-hide" : "")}>
 					{!sidebarCollapsed && (
 						<div className="px-3 mb-2">
 							<p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
@@ -150,33 +150,6 @@ export default function Layout({ children, activeNav }: LayoutProps) {
 								</div>
 							);
 						})}
-					</div>
-
-					{/* Divider + Bottom section */}
-					<div className="mt-6 pt-4" style={{ borderTop: "1px solid var(--sidebar-border)" }}>
-						{!sidebarCollapsed && (
-							<p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
-								Resources
-							</p>
-						)}
-						<div className="space-y-0.5">
-							{[{name:"Frontend Squad",href:"/teams"},{name:"Backend Squad",href:"/teams"}].map((team) => (
-								<Link
-									key={team.name}
-									href={team.href}
-									className={
-										"flex items-center gap-3 rounded-lg text-sm transition-colors duration-150 " +
-										(sidebarCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2")
-									}
-									onClick={() => setShowNav(false)}
-									onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
-									onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-								>
-									<span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] flex-shrink-0" />
-									{!sidebarCollapsed && <span style={{ color: "var(--text-secondary)" }}>{team.name}</span>}
-								</Link>
-							))}
-						</div>
 					</div>
 				</nav>
 
