@@ -206,21 +206,21 @@ const Teams: React.FC = () => {
 							Manage your AI development teams, monitor sprint progress, and track team activity.
 						</p>
 					</div>
-					<div className="flex flex-wrap items-center gap-3">
-						<div className="relative flex-1 min-w-[200px] max-w-md">
-							<FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+					<div className="flex flex-nowrap items-center gap-2">
+						<div className="relative flex-1 min-w-[160px] max-w-xs">
+							<FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
 							<input
 								type="text"
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
 								placeholder="Search teams..."
-								className="search-input w-full pl-9 pr-3 py-1.5 text-xs"
+								className="search-input w-full pl-8 pr-3 py-1.5 text-xs"
 							/>
 						</div>
 						<select
 							value={statusFilter}
 							onChange={(e) => setStatusFilter(e.target.value)}
-							className="input-field text-xs py-1.5 px-2"
+							className="input-field text-xs py-1.5 pl-2 pr-7"
 						>
 							{STATUS_FILTER_OPTIONS.map((opt) => (
 								<option key={opt.value} value={opt.value}>
@@ -231,7 +231,7 @@ const Teams: React.FC = () => {
 						<select
 							value={sortBy}
 							onChange={(e) => setSortBy(e.target.value)}
-							className="input-field text-xs py-1.5 px-2"
+							className="input-field text-xs py-1.5 pl-2 pr-7"
 						>
 							{SORT_OPTIONS.map((opt) => (
 								<option key={opt.value} value={opt.value}>
@@ -242,9 +242,9 @@ const Teams: React.FC = () => {
 						<button
 							type="button"
 							onClick={() => setShowNewTeamModal(true)}
-							className="btn-primary flex items-center gap-2 text-sm py-2 px-4 sm:ml-auto"
+							className="btn-primary flex items-center gap-1 text-xs py-1.5 px-2.5 flex-shrink-0"
 						>
-							<FaPlus className="w-4 h-4" />
+							<FaPlus className="w-3 h-3" />
 							Create New Team
 						</button>
 					</div>
