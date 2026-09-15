@@ -16,9 +16,11 @@ import {
 	FaCog,
 	FaBell,
 	FaChevronDown,
+	FaBuilding,
 } from "react-icons/fa";
 
 const SIDEBAR_NAV_ITEMS = [
+	{ id: "agent-office", label: "Agent Office", href: "/agent-office", icon: FaBuilding },
 	{ id: "agents", label: "Agents", href: "/agents", icon: FaMicrochip },
 	{ id: "activity", label: "Activity", href: "/activity", icon: FaStream },
 	{ id: "overview", label: "Overview", href: "/", icon: FaThLarge },

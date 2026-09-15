@@ -1,8 +1,14 @@
 import React from "react";
-import { FaBrain } from "react-icons/fa";
+import { FaBrain, FaBuilding } from "react-icons/fa";
 import type { NavItem, NavConfig } from "../types";
 
 const NAV_ITEMS: NavConfig[] = [
+	{
+		id: "agent-office",
+		label: "Agent Office",
+		href: "/agent-office",
+		icon: FaBuilding,
+	},
 	{
 		id: "overview",
 		label: "Overview",

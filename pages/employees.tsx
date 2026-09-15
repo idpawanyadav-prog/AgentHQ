@@ -9,12 +9,13 @@ import {
  FaUserCircle,
  FaCircle,
  FaCheckSquare,
- FaEllipsisH,
  FaTimesCircle,
  FaCheckCircle,
  FaMicrochip,
  FaTasks,
  FaUsers,
+ FaTrash,
+ FaEdit,
 } from "react-icons/fa";
 
 import InteractiveDonut from "@/components/InteractiveDonut";
@@ -74,6 +75,17 @@ const Employees: React.FC = () => {
  const [rowsPerPage, setRowsPerPage] = useState(14);
  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
  const [profileTab, setProfileTab] = useState("Overview");
+ const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+ const [deleting, setDeleting] = useState(false);
+ const [formOpen, setFormOpen] = useState(false);
+ const [editingMember, setEditingMember] = useState<Member | null>(null);
+ const [saving, setSaving] = useState(false);
+ const [formName, setFormName] = useState("");
+ const [formRole, setFormRole] = useState("");
+ const [formType, setFormType] = useState<"human" | "ai">("ai");
+ const [formTeam, setFormTeam] = useState("");
+ const [formError, setFormError] = useState("");
+ const [roleGroups, setRoleGroups] = useState<{ id: string; name: string }[]>([]);
 
  const teamMap = teams.reduce<Record<string, string>>((acc, t) => {
  acc[t.id] = t.name;
@@ -99,12 +111,17 @@ const Employees: React.FC = () => {
  try {
  setLoading(true);
  setError(null);
- const data = (await api.getTeams()) as { teams: Team[] };
+ const [data, groups] = await Promise.all([
+ api.getTeams() as Promise<{ teams: Team[] }>,
+ api.getRoleGroups().catch(() => []),
+ ]);
  if (cancelled) return;
  const teamsData = Array.isArray(data) ? data : data.teams || [];
  setTeams(teamsData);
  const allMembers = teamsData.flatMap((t) => t.members || []);
  setMembers(allMembers);
+ const groupsArr = Array.isArray(groups) ? groups : (groups?.data || []);
+ setRoleGroups(groupsArr.map((g: any) => ({ id: g.id, name: g.name })));
  if (allMembers.length > 0) {
  setSelectedId(current => current || allMembers[0].id);
  }
@@ -242,10 +259,26 @@ const Employees: React.FC = () => {
  <option key={r}>{r}</option>
  ))}
  </select>
- <button className="btn-primary flex items-center gap-1 text-xs px-2.5 py-1.5 h-8 flex-shrink-0">
+ <button
+ onClick={async () => {
+ setEditingMember(null);
+ setFormName("");
+ setFormRole("");
+ setFormType("ai");
+ setFormTeam(teamsList.length > 0 ? teamsList[0] : "");
+ setFormError("");
+ try {
+ const groups = await api.getRoleGroups() as unknown;
+ const data = Array.isArray(groups) ? groups : ((groups as { data?: unknown[] })?.data || []);
+ setRoleGroups(data.map((g: any) => ({ id: g.id, name: g.name })));
+ } catch { setRoleGroups([]); }
+ setFormOpen(true);
+ }}
+ className="btn-primary flex items-center gap-1 text-xs px-2.5 py-1.5 h-8 flex-shrink-0"
+>
  <FaPlus className="w-3 h-3" />
  Add Employee
- </button>
+</button>
  </div>
  </div>
 
@@ -331,7 +364,7 @@ const Employees: React.FC = () => {
  </td>
  <td className="p-3">
  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${roleColor}`}>
- {member.role}
+ {member.type === "human" ? "Team Lead" : member.role}
  </span>
  </td>
  <td className="p-3 text-slate-300">{teamName(member.teamId)}</td>
@@ -349,10 +382,35 @@ const Employees: React.FC = () => {
  </td>
  <td className="p-3 text-right text-slate-300 font-mono text-xs">N/A</td>
  <td className="p-3">
- <button className="text-slate-400 hover:text-[var(--text-primary)] p-1">
- <FaEllipsisH className="w-4 h-4" />
+ <div className="flex items-center justify-end gap-1">
+ <button
+ onClick={(e) => {
+ e.stopPropagation();
+ setEditingMember(member);
+ setFormName(member.name);
+ setFormRole(member.type === "human" ? "Team Lead" : member.role);
+ setFormType(member.type);
+ setFormTeam(teamName(member.teamId));
+ setFormError("");
+ setFormOpen(true);
+ }}
+ className="text-slate-400 hover:text-blue-400 p-1"
+ title="Edit employee"
+ >
+ <FaEdit className="w-3.5 h-3.5" />
  </button>
- </td>
+ <button
+ onClick={(e) => {
+ e.stopPropagation();
+ setDeleteTarget(member.id);
+ }}
+ className="text-slate-400 hover:text-red-400 p-1"
+ title="Delete employee"
+ >
+ <FaTrash className="w-3.5 h-3.5" />
+ </button>
+ </div>
+</td>
  </tr>
  );
  })}
@@ -416,9 +474,9 @@ const Employees: React.FC = () => {
  </span>
  </div>
  <p className="text-sm text-slate-400 mt-1">
- {selectedMember.role} - {teamName(selectedMember.teamId)}
+ {selectedMember.type === "human" ? "Team Lead" : selectedMember.role} - {teamName(selectedMember.teamId)}
  </p>
- <p className="text-xs text-slate-500 mt-2 italic">&ldquo;{selectedMember.role} that inspire.&rdquo;</p>
+ <p className="text-xs text-slate-500 mt-2 italic">&ldquo;{selectedMember.type === "human" ? "Team Lead" : selectedMember.role} that inspire.&rdquo;</p>
  </div>
 
  {/* Tabs */}
@@ -444,7 +502,7 @@ const Employees: React.FC = () => {
  {[
  { label: "Member ID", value: selectedMember.id },
  { label: "Team", value: teamName(selectedMember.teamId) },
- { label: "Role", value: selectedMember.role },
+ { label: "Role", value: selectedMember.type === "human" ? "Team Lead" : selectedMember.role },
  { label: "Type", value: selectedMember.type === "ai" ? "AI Agent" : "Human" },
  { label: "Status", value: "Active" },
  ].map((field) => (
@@ -493,7 +551,7 @@ const Employees: React.FC = () => {
  <p className="text-xs text-slate-500">Recent work activity for {selectedMember.name}.</p>
  <div className="mt-3 space-y-2">
  <div className="bg-[var(--bg-secondary)]/50 rounded p-3 border border-[var(--border-default)]/50">
- <p className="text-xs text-[var(--text-primary)]">{selectedMember.role} assignments</p>
+ <p className="text-xs text-[var(--text-primary)]">{selectedMember.type === "human" ? "Team Lead" : selectedMember.role} assignments</p>
  <p className="text-[10px] text-slate-500 mt-0.5">{teamName(selectedMember.teamId)}</p>
  <span className="inline-block mt-1 text-[10px] text-blue-400">
  Active
@@ -719,8 +777,164 @@ const Employees: React.FC = () => {
  </div>
  </div>
  </div>
+
+ {/* Add/Edit Employee Dialog */}
+{formOpen && (
+ <div
+ className="fixed inset-0 flex items-center justify-center p-4"
+ style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 50, backdropFilter: 'blur(4px)' }}
+ >
+ <form
+ onSubmit={async (e) => {
+ e.preventDefault();
+ setSaving(true);
+ setFormError("");
+ try {
+ const teamId = teams.find((t) => t.name === formTeam)?.id || formTeam;
+ if (editingMember) {
+ const data: any = { name: formName, type: formType, teamId };
+ if (formType === "human") data.role = "Team Lead";
+ else data.role = formRole;
+ const updated = await api.updateMember(editingMember.id, data);
+ setMembers((prev) => prev.map((m) => m.id === editingMember.id ? { ...m, ...updated } : m));
+ if (selectedId === editingMember.id) setSelectedId(editingMember.id);
+ } else {
+ const data: any = { name: formName, role: formType === "human" ? "Team Lead" : formRole, type: formType, teamId };
+ const created = await api.createMember(data);
+ setMembers((prev) => [...prev, created]);
+ }
+ setFormOpen(false);
+ } catch (err) {
+ setFormError(err instanceof Error ? err.message : 'Failed to save employee');
+ } finally {
+ setSaving(false);
+ }
+ }}
+ className="page-panel w-full max-w-sm space-y-4"
+ >
+ <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+ {editingMember ? 'Edit Employee' : 'Add Employee'}
+ </h2>
+ {formError && <p role="alert" style={{ color: 'var(--error)' }}>{formError}</p>}
+ <label className="block">
+ <span className="text-xs text-slate-400">Name</span>
+ <input
+ value={formName}
+ onChange={(e) => setFormName(e.target.value)}
+ required
+ className="input-field mt-1"
+ />
+ </label>
+ <label className="block">
+ <span className="text-xs text-slate-400">Type</span>
+ <select
+ value={formType}
+ onChange={(e) => {
+ const t = e.target.value as "human" | "ai";
+ setFormType(t);
+ if (t === "human") setFormRole("Team Lead");
+ }}
+ className="input-field mt-1"
+ >
+ <option value="ai">AI Agent</option>
+ <option value="human">Human</option>
+ </select>
+ </label>
+ <label className="block">
+ <span className="text-xs text-slate-400">Role</span>
+ {formType === "human" ? (
+ <input value="Team Lead" disabled className="input-field mt-1 opacity-60" />
+ ) : (
+ <select
+ value={formRole}
+ onChange={(e) => setFormRole(e.target.value)}
+ required
+ className="input-field mt-1"
+ >
+ <option value="">Select a role...</option>
+ {roleGroups.map((rg) => (
+ <option key={rg.id} value={rg.name}>{rg.name}</option>
+ ))}
+ </select>
+ )}
+ {formType === "human" && (
+ <p className="text-[10px] text-slate-500 mt-0.5">Human employees are always assigned the Team Lead role.</p>
+ )}
+ </label>
+ <label className="block">
+ <span className="text-xs text-slate-400">Team</span>
+ <select
+ value={formTeam}
+ onChange={(e) => setFormTeam(e.target.value)}
+ required
+ className="input-field mt-1"
+ >
+ {teamsList.map((t) => (
+ <option key={t} value={t}>{t}</option>
+ ))}
+ </select>
+ </label>
+ <div className="flex items-center gap-3 pt-2">
+ <button type="submit" disabled={saving} className="btn-primary">
+ {saving ? 'Saving...' : editingMember ? 'Save Changes' : 'Add Employee'}
+ </button>
+ <button type="button" onClick={() => setFormOpen(false)} disabled={saving} className="btn-secondary">
+ Cancel
+ </button>
+ </div>
+ </form>
+ </div>
+)}
+
+ {/* Delete Confirmation Dialog */}
+ {deleteTarget && (
+ <div
+ className="fixed inset-0 flex items-center justify-center p-4"
+ style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 50, backdropFilter: 'blur(4px)' }}
+ >
+ <div className="page-panel w-full max-w-sm space-y-4">
+ <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+ Delete Employee
+ </h2>
+ <p className="text-sm text-slate-400">
+ Are you sure you want to delete this employee? This action cannot be undone.
+ </p>
+ <div className="flex items-center gap-3 pt-2">
+ <button
+ onClick={async () => {
+ setDeleting(true);
+ try {
+ await api.deleteMember(deleteTarget);
+ setMembers((prev) => prev.filter((m) => m.id !== deleteTarget));
+ if (selectedId === deleteTarget) setSelectedId('');
+ setSelectedIds((prev) => { const s = new Set(prev); s.delete(deleteTarget); return s; });
+ } catch (err) {
+ alert(err instanceof Error ? err.message : 'Failed to delete employee');
+ } finally {
+ setDeleting(false);
+ setDeleteTarget(null);
+ }
+ }}
+ disabled={deleting}
+ className="btn-primary"
+ style={{ backgroundColor: '#dc2626' }}
+ >
+ {deleting ? 'Deleting...' : 'Delete'}
+ </button>
+ <button
+ onClick={() => setDeleteTarget(null)}
+ disabled={deleting}
+ className="btn-secondary"
+ >
+ Cancel
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
  </Layout>
  );
 };
 
 export default Employees;
+

@@ -144,8 +144,38 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  include: { member: true, tasks: true },
  });
  res.status(200).json(agent);
+ } else if (req.method === 'DELETE') {
+ const agent = await prisma.agent.findUnique({
+ where: { id: id as string },
+ include: { member: true },
+ });
+ if (!agent) return res.status(404).json({ error: 'Agent not found' });
+ if (agent.status === 'working') {
+ return res.status(409).json({ error: 'Stop the agent before deleting it.' });
+ }
+ await prisma.$transaction(async (tx) => {
+ await tx.task.updateMany({
+ where: { agentId: agent.id },
+ data: { agentId: null },
+ });
+ await tx.agentRoleAssignment.deleteMany({
+ where: { agentId: agent.id },
+ });
+ await tx.agent.delete({
+ where: { id: agent.id },
+ });
+ const siblingAgents = await tx.agent.count({
+ where: { memberId: agent.memberId },
+ });
+ if (agent.member.type === 'ai' && siblingAgents === 0) {
+ await tx.member.delete({
+ where: { id: agent.memberId },
+ });
+ }
+ });
+ res.status(204).end();
  } else {
- res.setHeader('Allow', ['GET', 'PUT', 'POST']);
+ res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
  res.status(405).end(`Method ${req.method} Not Allowed`);
  }
 }

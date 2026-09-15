@@ -146,6 +146,8 @@ export const api = {
 			method: 'PUT',
 			body: JSON.stringify(data),
 		}),
+	deleteAgent: (id: string) =>
+		request(`/api/agents/${id}`, { method: 'DELETE' }),
 	benchAgent: (id: string) =>
 		request(`/api/agents/${id}`, {
 			method: 'PUT',
@@ -263,6 +265,19 @@ export const api = {
 		}),
 	removeAssignment: (groupId: string, agentId: string) =>
 		request(`/api/agent-memory/role-groups/${groupId}/assignments/${agentId}`, { method: 'DELETE' }),
+
+	// Members
+	deleteMember: (id: string) => request(`/api/members/${id}`, { method: 'DELETE' }),
+	createMember: (data: { name: string; role: string; type: "human" | "ai"; teamId: string }) =>
+		request('/api/members', {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	updateMember: (id: string, data: { name?: string; role?: string; type?: "human" | "ai"; teamId?: string }) =>
+		request(`/api/members/${id}`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+		}),
 };
 
 export default api;

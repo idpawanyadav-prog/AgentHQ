@@ -8,7 +8,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  const team = await prisma.team.findUnique({
  where: { id: id as string },
  include: {
- members: true,
+ members: { include: { agents: true } },
  tasks: { orderBy: { createdAt: 'desc' } },
  activities: { take: 20, orderBy: { createdAt: 'desc' } },
  },
@@ -27,7 +27,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  ...(status !== undefined && { status }),
  },
  include: {
- members: true,
+ members: { include: { agents: true } },
  tasks: true,
  activities: { take: 5, orderBy: { createdAt: 'desc' } },
  },

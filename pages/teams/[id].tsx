@@ -261,7 +261,7 @@ const TeamProgress: React.FC = () => {
  </div>
  <div className="flex items-center gap-2">
  <FaMicrochip className="w-4 h-4 text-slate-400" />
- <span className="text-sm text-slate-400">{members.filter(m => m.type === "ai").length} AI members</span>
+ <span className="text-sm text-slate-400">{agents.length} AI agents</span>
  </div>
  <div className="flex items-center gap-2">
  <FaCodeBranch className="w-4 h-4 text-slate-400" />

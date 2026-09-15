@@ -53,8 +53,11 @@ async function main() {
  console.log(`Sprint: ${sprint.name}`);
 
  // Create members
- const alice = await prisma.member.create({
- data: {
+ const alice = await prisma.member.upsert({
+ where: { id: 'member-alice' },
+ update: { name: 'Alice', role: 'Tech Lead', type: 'human', teamId: team.id },
+ create: {
+ id: 'member-alice',
  name: 'Alice',
  role: 'Tech Lead',
  type: 'human',
@@ -62,8 +65,11 @@ async function main() {
  },
  });
 
- const bob = await prisma.member.create({
- data: {
+ const bob = await prisma.member.upsert({
+ where: { id: 'member-bob' },
+ update: { name: 'Bob', role: 'Full-stack Developer', type: 'human', teamId: team.id },
+ create: {
+ id: 'member-bob',
  name: 'Bob',
  role: 'Full-stack Developer',
  type: 'human',
@@ -71,8 +77,11 @@ async function main() {
  },
  });
 
- const claudeMember = await prisma.member.create({
- data: {
+ const claudeMember = await prisma.member.upsert({
+ where: { id: 'member-claude-dev-1' },
+ update: { name: 'Claude Dev #1', role: 'AI Developer', type: 'ai', teamId: team.id },
+ create: {
+ id: 'member-claude-dev-1',
  name: 'Claude Dev #1',
  role: 'AI Developer',
  type: 'ai',
@@ -80,8 +89,11 @@ async function main() {
  },
  });
 
- const gptMember = await prisma.member.create({
- data: {
+ const gptMember = await prisma.member.upsert({
+ where: { id: 'member-gpt-coder' },
+ update: { name: 'GPT Coder', role: 'AI Developer', type: 'ai', teamId: team.id },
+ create: {
+ id: 'member-gpt-coder',
  name: 'GPT Coder',
  role: 'AI Developer',
  type: 'ai',

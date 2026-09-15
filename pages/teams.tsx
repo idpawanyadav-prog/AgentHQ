@@ -60,6 +60,18 @@ function enrichTeam(raw: any): Team {
 			: raw.id?.includes('delta')
 				? 'green'
 				: 'purple';
+	const membersByDisplayKey = new Map<string, any>();
+	for (const member of raw.members || []) {
+		const key = `${member.name || ''}|${member.type || ''}|${member.role || ''}`;
+		const existing = membersByDisplayKey.get(key);
+		const memberAgentCount = member.agents?.length || 0;
+		const existingAgentCount = existing?.agents?.length || 0;
+		if (!existing || memberAgentCount > existingAgentCount) {
+			membersByDisplayKey.set(key, member);
+		}
+	}
+	const members = Array.from(membersByDisplayKey.values());
+	const displayMembers = members.filter((member: any) => member.type !== 'ai' || (member.agents?.length || 0) > 0);
 
 	return {
 		id: raw.id,
@@ -79,10 +91,10 @@ function enrichTeam(raw: any): Team {
 		integrations: 0,
 		issues: raw.tasks?.filter((t: any) => t.status === 'blocked').length || 0,
 		dueDate: '',
-		members: raw.members || [],
-		teamMembers: (raw.members || []).map((m: any) => ({
+		members,
+		teamMembers: displayMembers.map((m: any) => ({
 			name: m.name || 'Unknown',
-			model: 'Sonnet',
+			model: m.agents?.[0]?.model || (m.type === 'human' ? 'Human' : 'AI'),
 		})),
 		tasks: raw.tasks || [],
 		createdAt: raw.createdAt || '',

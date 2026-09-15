@@ -28,6 +28,8 @@ const MODEL_COLORS: Record<string, string> = {
 	"Fable S.1": "model-badge-anthropic",
 	"Opus 5": "model-badge-openai",
 	Haiku: "model-badge-anthropic",
+	Human: "model-badge-openai",
+	AI: "model-badge-anthropic",
 };
 
 interface TeamCardProps {
@@ -49,7 +51,7 @@ export default function TeamCard({ team, onViewTeam, menuItems = [] }: TeamCardP
 	const daysLabel = team.daysLeft === null ? "Not started" : `${team.daysLeft} days left`;
 
 	const teamMembers = team.teamMembers || [];
-	const memberCount = team.members.length > 0 ? team.members.length : teamMembers.length;
+	const memberCount = teamMembers.length;
 
 	return (
 		<div className="team-card team-card-compact group">

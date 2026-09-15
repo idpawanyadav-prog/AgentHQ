@@ -8,6 +8,7 @@ const { PrismaClient } = require('@prisma/client');
 const githubRouter = require('./routes/github');
 const aiRouter = require('./routes/ai');
 const agentMemoryRouter = require('./routes/agent-memory');
+const membersRouter = require('./routes/members');
 const securityHeaders = require('./middleware/security-headers');
 const errorHandler = require('./middleware/error-handler');
 const { initSocketServer, broadcastActivity } = require('./socket');
@@ -74,6 +75,7 @@ app.use('/api', async (req, res, next) => {
 app.use('/api/github', githubRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/agent-memory', agentMemoryRouter);
+app.use('/api/members', membersRouter);
 
 // Next.js is authoritative for core APIs; preserve the incoming origin/cookie.
 app.use('/api', (req,res)=>{

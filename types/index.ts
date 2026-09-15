@@ -241,6 +241,7 @@ export interface DashboardStats {
 
 export type NavItem =
  | "overview"
+ | "agent-office"
  | "teams"
  | "sprints"
  | "tasks"

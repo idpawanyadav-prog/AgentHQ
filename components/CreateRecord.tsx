@@ -3,6 +3,7 @@ import api from '@/lib/api-client';
 import type { Agent, ConfiguredModel, RoleGroup, Team } from '@/types';
 
 const BENCH_TEAM_NAME = 'On Bench';
+const BENCH_TEAM_ID = 'on-bench';
 
 export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'sprint'; onCreated: () => void }) {
 	const [open, setOpen] = useState(false);
@@ -24,7 +25,7 @@ export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'spr
 				]);
 
 				let teamOptions: Team[] = Array.isArray(teams) ? teams : [];
-				const benchTeam = teamOptions.find((team) => team.name.toLowerCase() === BENCH_TEAM_NAME.toLowerCase());
+				const benchTeam = teamOptions.find((team) => team.id === BENCH_TEAM_ID);
 				if (!benchTeam) {
 					const createdBench = await api.createTeam({
 						name: BENCH_TEAM_NAME,
@@ -34,7 +35,14 @@ export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'spr
 					teamOptions = [createdBench, ...teamOptions];
 				}
 
-				setOptions(teamOptions.map((team) => ({ id: team.id, name: team.name })));
+				setOptions(teamOptions
+					.filter((team, index, allTeams) =>
+						team.name.toLowerCase() !== BENCH_TEAM_NAME.toLowerCase()
+						|| team.id === BENCH_TEAM_ID
+						|| !allTeams.some((item) => item.id === BENCH_TEAM_ID)
+						|| allTeams.findIndex((item) => item.name.toLowerCase() === BENCH_TEAM_NAME.toLowerCase()) === index
+					)
+					.map((team) => ({ id: team.id, name: team.name })));
 				setRoleGroups(Array.isArray(groups) ? groups : []);
 				setConfiguredModels(Array.isArray(models) ? models : []);
 			} else {
