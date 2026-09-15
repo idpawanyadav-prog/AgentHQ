@@ -32,6 +32,7 @@ const STATUS_CONFIG: Record<AgentStatus, { label: string; dotColor: string; badg
 const PROVIDER_STYLES: Record<string, { badge: string; iconBg: string }> = {
 	anthropic: { badge: "model-badge-anthropic", iconBg: "#a855f7" },
 	openai: { badge: "model-badge-openai", iconBg: "#3b82f6" },
+	custom: { badge: "model-badge-openai", iconBg: "#14b8a6" },
 };
 
 const AgentCard: React.FC<AgentCardProps> = ({ agent, onClick, compact = false }) => {

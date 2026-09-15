@@ -18,7 +18,10 @@ export async function startAgent(id: string, taskId: string) {
  const runningCount = await prisma.agent.count({ where: { status: 'working' } });
  if (runningCount >= MAX_PARALLEL_AGENTS) throw new Error('Maximum number of agents are already running');
 
- const gateway = await prisma.gateway.findFirst({
+ const config=typeof agent.config==='string'?JSON.parse(agent.config):agent.config || {};
+ const gateway = config.gatewayId
+ ? await prisma.gateway.findUnique({ where: { id: config.gatewayId } })
+ : await prisma.gateway.findFirst({
  where: { OR: [{ provider: agent.type }, { provider: 'custom' }] },
  orderBy: { isDefault: 'desc' },
  });
@@ -31,7 +34,6 @@ export async function startAgent(id: string, taskId: string) {
  const key=gateway ? decrypt(gateway.apiKey) : provider==='anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY;
  if(!key) throw new Error('Configure a provider gateway before starting this agent');
  if(gateway?.baseUrl) await parseSafeUrl(gateway.baseUrl);
- const config=typeof agent.config==='string'?JSON.parse(agent.config):agent.config || {};
  const payload={agentId:id,taskId,teamId:task.teamId,config,model:agent.model,provider,gatewayId:gateway?.id,messages};
  const job=await prisma.$transaction(async tx=>{
   if(await tx.agent.count({where:{status:'working'}})>=MAX_PARALLEL_AGENTS) throw new Error('Agent concurrency limit reached');

@@ -1,4 +1,5 @@
 import React from "react";
+import { FaBrain } from "react-icons/fa";
 import type { NavItem, NavConfig } from "../types";
 
 const NAV_ITEMS: NavConfig[] = [
@@ -52,6 +53,12 @@ const NAV_ITEMS: NavConfig[] = [
 				<line x1="16" y1="16" x2="16" y2="16" />
 			</svg>
 		),
+	},
+	{
+		id: "agent-memory",
+		label: "Agent Memory",
+		href: "/agent-memory",
+		icon: FaBrain,
 	},
 	{
 		id: "projects",

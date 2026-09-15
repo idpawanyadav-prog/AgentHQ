@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import api from '@/lib/api-client';
+import type { Agent, ConfiguredModel, RoleGroup, Team } from '@/types';
+
+const BENCH_TEAM_NAME = 'On Bench';
 
 export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'sprint'; onCreated: () => void }) {
 	const [open, setOpen] = useState(false);
 	const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
+	const [roleGroups, setRoleGroups] = useState<RoleGroup[]>([]);
+	const [configuredModels, setConfiguredModels] = useState<ConfiguredModel[]>([]);
 	const [error, setError] = useState('');
 	const [busy, setBusy] = useState(false);
 
@@ -11,10 +16,33 @@ export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'spr
 		setOpen(true);
 		setError('');
 		try {
-			const data = kind === 'agent'
-				? (await api.getTeams()).flatMap((t: { members: { id: string; name: string }[] }) => t.members)
-				: await api.getProjects();
-			setOptions(data);
+			if (kind === 'agent') {
+				const [teams, groups, models] = await Promise.all([
+					api.getTeams(),
+					api.getRoleGroups(),
+					api.getModels(),
+				]);
+
+				let teamOptions: Team[] = Array.isArray(teams) ? teams : [];
+				const benchTeam = teamOptions.find((team) => team.name.toLowerCase() === BENCH_TEAM_NAME.toLowerCase());
+				if (!benchTeam) {
+					const createdBench = await api.createTeam({
+						name: BENCH_TEAM_NAME,
+						description: 'Idle bench for agents not assigned to a delivery team.',
+						status: 'paused',
+					});
+					teamOptions = [createdBench, ...teamOptions];
+				}
+
+				setOptions(teamOptions.map((team) => ({ id: team.id, name: team.name })));
+				setRoleGroups(Array.isArray(groups) ? groups : []);
+				setConfiguredModels(Array.isArray(models) ? models : []);
+			} else {
+				const data = await api.getProjects();
+				setOptions(data);
+				setRoleGroups([]);
+				setConfiguredModels([]);
+			}
 		} catch (e) { setError((e as Error).message); }
 	}
 
@@ -26,7 +54,28 @@ export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'spr
 		try {
 			const name = String(values.get('name')).trim();
 			if (kind === 'agent') {
-				await api.createAgent({ name, memberId: String(values.get('parent')), type: String(values.get('provider')), model: String(values.get('model')).trim(), config: {} });
+				const configuredModelId = String(values.get('configuredModel') || '');
+				const configuredModel = configuredModels.find((model) => model.id === configuredModelId);
+				if (!configuredModel) throw new Error('Select a configured model');
+
+				const agent = await api.createAgent({
+					name,
+					teamId: String(values.get('parent')),
+					type: configuredModel.provider,
+					model: configuredModel.modelId,
+					config: {
+						gatewayId: configuredModel.gatewayId,
+						configuredModelId: configuredModel.id,
+					},
+				}) as Agent;
+				const roleGroupId = String(values.get('roleGroup') || '');
+				if (roleGroupId) {
+					await api.assignAgent(roleGroupId, {
+						agentId: agent.id,
+						agentName: agent.name,
+						agentStatus: agent.status,
+					});
+				}
 			} else {
 				await api.createSprint({ name, projectId: String(values.get('parent')), goal: String(values.get('goal')) });
 			}
@@ -48,7 +97,7 @@ export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'spr
 							<input name="name" required className="input-field mt-1" />
 						</label>
 						<label className="block">
-							{kind === 'agent' ? 'Member' : 'Project'}
+							{kind === 'agent' ? 'Team' : 'Project'}
 							<select name="parent" required className="input-field mt-1">
 								<option value="">Select...</option>
 								{options.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
@@ -57,15 +106,27 @@ export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'spr
 						{kind === 'agent' ? (
 							<>
 								<label className="block">
-									Provider
-									<select name="provider" className="input-field mt-1">
-										<option value="openai">OpenAI</option>
-										<option value="anthropic">Anthropic</option>
+									Model
+									<select name="configuredModel" required className="input-field mt-1">
+										<option value="">Select configured model...</option>
+										{configuredModels.map((model) => (
+											<option key={model.id} value={model.id}>
+												{model.name} ({model.gatewayName} / {model.modelId})
+											</option>
+										))}
 									</select>
+									{configuredModels.length === 0 && (
+										<span className="text-xs text-slate-400 mt-1 block">Configure models in the Models tab first.</span>
+									)}
 								</label>
 								<label className="block">
-									Model
-									<input name="model" required className="input-field mt-1" />
+									Role Group
+									<select name="roleGroup" className="input-field mt-1">
+										<option value="">No role group</option>
+										{roleGroups.map((group) => (
+											<option key={group.id} value={group.id}>{group.name}</option>
+										))}
+									</select>
 								</label>
 							</>
 						) : (

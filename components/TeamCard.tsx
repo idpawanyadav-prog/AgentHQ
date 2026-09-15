@@ -33,9 +33,15 @@ const MODEL_COLORS: Record<string, string> = {
 interface TeamCardProps {
 	team: Team;
 	onViewTeam?: () => void;
+	menuItems?: Array<{
+		label: string;
+		onClick: () => void;
+		danger?: boolean;
+	}>;
 }
 
-export default function TeamCard({ team, onViewTeam }: TeamCardProps) {
+export default function TeamCard({ team, onViewTeam, menuItems = [] }: TeamCardProps) {
+	const [menuOpen, setMenuOpen] = React.useState(false);
 	const colors = COLOR_MAP[team.teamColor] || COLOR_MAP.blue;
 	const sc = STATUS_CONFIG[team.status] || STATUS_CONFIG.active;
 
@@ -67,7 +73,47 @@ export default function TeamCard({ team, onViewTeam }: TeamCardProps) {
 				</div>
 				<div className="flex items-center gap-2 flex-shrink-0">
 					<span className={"text-xs px-2 py-0.5 rounded-full " + sc.className}>{sc.label}</span>
-					{onViewTeam && (
+					{menuItems.length > 0 && (
+						<div className="relative">
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									setMenuOpen((open) => !open);
+								}}
+								className="p-1 rounded transition-colors duration-150 opacity-60 hover:opacity-100"
+								style={{ color: "var(--text-tertiary)" }}
+							>
+								<FaEllipsisH className="w-4 h-4" />
+							</button>
+							{menuOpen && (
+								<div
+									className="absolute right-0 top-full mt-1 w-36 rounded-md shadow-lg z-30 border border-[var(--border-default)] overflow-hidden"
+									style={{ backgroundColor: "var(--surface-card)" }}
+									onClick={(e) => e.stopPropagation()}
+								>
+									{menuItems.map((item) => (
+										<button
+											key={item.label}
+											type="button"
+											onClick={() => {
+												setMenuOpen(false);
+												item.onClick();
+											}}
+											className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+												item.danger
+													? "text-red-400 hover:bg-red-500/10 hover:text-red-300"
+													: "text-slate-300 hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
+											}`}
+										>
+											{item.label}
+										</button>
+									))}
+								</div>
+							)}
+						</div>
+					)}
+					{menuItems.length === 0 && onViewTeam && (
 						<button
 							onClick={onViewTeam}
 							className="p-1 rounded transition-colors duration-150 opacity-60 hover:opacity-100"

@@ -50,7 +50,7 @@ export const api = {
 	// Teams
 	getTeams: () => request('/api/teams'),
 	getTeam: (id: string) => request(`/api/teams/${id}`),
-	createTeam: (data: { name: string; description?: string }) =>
+	createTeam: (data: { name: string; description?: string; status?: string }) =>
 		request('/api/teams', {
 			method: 'POST',
 			body: JSON.stringify(data),
@@ -126,7 +126,8 @@ export const api = {
 		name: string;
 		type: string;
 		model: string;
-		memberId: string;
+		memberId?: string;
+		teamId?: string;
 		config?: Record<string, any>;
 	}) =>
 		request('/api/agents', {
@@ -135,13 +136,20 @@ export const api = {
 		}),
 	updateAgent: (id: string, data: {
 		name?: string;
+		type?: string;
 		model?: string;
+		teamId?: string | null;
 		config?: Record<string, any>;
 		status?: string;
 	}) =>
 		request(`/api/agents/${id}`, {
 			method: 'PUT',
 			body: JSON.stringify(data),
+		}),
+	benchAgent: (id: string) =>
+		request(`/api/agents/${id}`, {
+			method: 'PUT',
+			body: JSON.stringify({ teamId: null }),
 		}),
 	startAgent: (id: string, taskId: string) =>
 		request(`/api/agents/${id}/start`, {
@@ -182,6 +190,21 @@ export const api = {
 
 	// Models
 	getModels: () => request('/api/models'),
+	createModel: (data: { name: string; gatewayId: string; gatewayName: string; provider: string; modelId: string }) =>
+		request('/api/models', {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	updateModel: (id: string, data: { name: string; gatewayId: string; gatewayName: string; provider: string; modelId: string }) =>
+		request('/api/models', {
+			method: 'PUT',
+			body: JSON.stringify({ id, ...data }),
+		}),
+	deleteModel: (id: string) =>
+		request('/api/models', {
+			method: 'DELETE',
+			body: JSON.stringify({ id }),
+		}),
 
 	// Settings
 	getSettings: () => request('/api/settings'),
@@ -193,6 +216,53 @@ export const api = {
 
 	// Cost & Usage
 	getCost: () => request('/api/cost'),
+
+	// Agent Memory
+	getRoleGroups: () => request('/api/agent-memory'),
+	getRoleGroup: (id: string) => request(`/api/agent-memory/role-groups/${id}`),
+	createRoleGroup: (data: { name: string; description?: string; color?: string }) =>
+		request('/api/agent-memory', {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	updateRoleGroup: (id: string, data: { name?: string; description?: string; color?: string }) =>
+		request(`/api/agent-memory/role-groups/${id}`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+		}),
+	deleteRoleGroup: (id: string) =>
+		request(`/api/agent-memory/role-groups/${id}`, { method: 'DELETE' }),
+	createInstruction: (groupId: string, data: { filename: string; title?: string; content: string }) =>
+		request(`/api/agent-memory/role-groups/${groupId}/instructions`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	updateInstruction: (instructionId: string, data: { filename?: string; title?: string; content?: string }) =>
+		request(`/api/agent-memory/instructions/${instructionId}`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+		}),
+	deleteInstruction: (instructionId: string) =>
+		request(`/api/agent-memory/instructions/${instructionId}`, { method: 'DELETE' }),
+	createSkill: (groupId: string, data: { name: string; level?: string; description?: string }) =>
+		request(`/api/agent-memory/role-groups/${groupId}/skills`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	updateSkill: (skillId: string, data: { name?: string; level?: string; description?: string }) =>
+		request(`/api/agent-memory/skills/${skillId}`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+		}),
+	deleteSkill: (skillId: string) =>
+		request(`/api/agent-memory/skills/${skillId}`, { method: 'DELETE' }),
+	assignAgent: (groupId: string, data: { agentId: string; agentName: string; agentStatus?: string }) =>
+		request(`/api/agent-memory/role-groups/${groupId}/assignments`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	removeAssignment: (groupId: string, agentId: string) =>
+		request(`/api/agent-memory/role-groups/${groupId}/assignments/${agentId}`, { method: 'DELETE' }),
 };
 
 export default api;

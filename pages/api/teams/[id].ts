@@ -1,6 +1,5 @@
 import { withAuth } from '../../../lib/auth';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
 import prisma from '../../../lib/prisma';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -18,19 +17,35 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  res.status(200).json(team);
  } else if (req.method === 'PUT') {
  const { name, description, status } = req.body;
+ if (name !== undefined && (typeof name !== 'string' || !name.trim())) return res.status(400).json({ error: 'Name required' });
+ if (status !== undefined && !['active', 'paused', 'archived'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
  const team = await prisma.team.update({
  where: { id: id as string },
  data: {
- ...(name !== undefined && { name }),
+ ...(name !== undefined && { name: name.trim() }),
  ...(description !== undefined && { description }),
  ...(status !== undefined && { status }),
  },
- include: { members: true, tasks: true },
+ include: {
+ members: true,
+ tasks: true,
+ activities: { take: 5, orderBy: { createdAt: 'desc' } },
+ },
  });
  res.status(200).json(team);
  } else if (req.method === 'DELETE') {
+ const team = await prisma.team.findUnique({
+ where: { id: id as string },
+ include: { _count: { select: { members: true, tasks: true } }, project: true },
+ });
+ if (!team) return res.status(404).json({ error: 'Team not found' });
+ if (team._count.members > 0 || team._count.tasks > 0 || team.project) {
+ return res.status(409).json({
+ error: 'Teams with members, tasks, or a project cannot be deleted. Archive the team instead.',
+ });
+ }
  await prisma.team.delete({ where: { id: id as string } });
- res.status(200).json({ message: 'Deleted' });
+ res.status(204).end();
  } else {
  res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
  res.status(405).end(`Method ${req.method} Not Allowed`);

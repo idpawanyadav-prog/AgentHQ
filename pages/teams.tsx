@@ -101,20 +101,46 @@ const Teams: React.FC = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [activities, setActivities] = useState<any[]>([]);
 	const [creating, setCreating] = useState(false);
+	const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+	const [savingTeam, setSavingTeam] = useState(false);
+	const [actionMessage, setActionMessage] = useState<string | null>(null);
+	const [actionError, setActionError] = useState<string | null>(null);
+
+	const loadData = async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const [teamsData, activitiesData] = await Promise.all([api.getTeams(), api.getActivities()]);
+			setTeams((teamsData as any[]).map(enrichTeam));
+			setActivities(activitiesData as any[]);
+		} catch (err: any) {
+			console.error('Failed to load teams:', err);
+			setError(err.message || 'Failed to load teams');
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	useEffect(() => {
+		let cancelled = false;
 		Promise.all([api.getTeams(), api.getActivities()])
 			.then(([teamsData, activitiesData]) => {
+				if (cancelled) return;
 				setTeams((teamsData as any[]).map(enrichTeam));
 				setActivities(activitiesData as any[]);
 			})
 			.catch((err) => {
+				if (cancelled) return;
 				console.error('Failed to load teams:', err);
 				setError(err.message || 'Failed to load teams');
 			})
 			.finally(() => {
+				if (cancelled) return;
 				setLoading(false);
 			});
+		return () => {
+			cancelled = true;
+		};
 	}, []);
 
 	const filteredTeams = teams
@@ -140,7 +166,7 @@ const Teams: React.FC = () => {
 
 	const handleCreateTeam = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		setError('');
+		setActionError(null);
 		setCreating(true);
 
 		const form = e.currentTarget;
@@ -153,7 +179,7 @@ const Teams: React.FC = () => {
 		const status = (statusInput?.value || 'active') as Team['status'];
 
 		if (!name) {
-			setError('Team name is required');
+			setActionError('Team name is required');
 			setCreating(false);
 			return;
 		}
@@ -173,9 +199,10 @@ const Teams: React.FC = () => {
 			const newTeam = await response.json();
 			setTeams((prev) => [enrichTeam(newTeam), ...prev]);
 			setShowNewTeamModal(false);
+			setActionMessage('Team created');
 			form.reset();
 		} catch (err: any) {
-			setError(err.message || 'Something went wrong');
+			setActionError(err.message || 'Something went wrong');
 		} finally {
 			setCreating(false);
 		}
@@ -195,6 +222,57 @@ const Teams: React.FC = () => {
 		router.push(navHref[item] || '/');
 	};
 
+	const handleViewTeam = (team: Team) => {
+		router.push(`/teams/${team.id}`);
+	};
+
+	const handleUpdateTeam = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		if (!editingTeam) return;
+		setSavingTeam(true);
+		setActionError(null);
+		setActionMessage(null);
+		const form = e.currentTarget;
+		const name = (form.elements.namedItem('teamName') as HTMLInputElement).value.trim();
+		const description = (form.elements.namedItem('teamDescription') as HTMLTextAreaElement).value.trim();
+		const status = (form.elements.namedItem('teamStatus') as HTMLSelectElement).value;
+		try {
+			const updated = await api.updateTeam(editingTeam.id, { name, description, status });
+			setTeams((prev) => prev.map((team) => team.id === editingTeam.id ? enrichTeam(updated) : team));
+			setEditingTeam(null);
+			setActionMessage('Team updated');
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : 'Failed to update team');
+		} finally {
+			setSavingTeam(false);
+		}
+	};
+
+	const handleSetTeamStatus = async (team: Team, status: Team['status']) => {
+		setActionError(null);
+		setActionMessage(null);
+		try {
+			const updated = await api.updateTeam(team.id, { status });
+			setTeams((prev) => prev.map((item) => item.id === team.id ? enrichTeam(updated) : item));
+			setActionMessage(`Team ${status === 'archived' ? 'archived' : status === 'paused' ? 'paused' : 'activated'}`);
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : 'Failed to update team status');
+		}
+	};
+
+	const handleDeleteTeam = async (team: Team) => {
+		if (!window.confirm(`Delete "${team.name}"? Teams with members or tasks must be archived instead.`)) return;
+		setActionError(null);
+		setActionMessage(null);
+		try {
+			await api.deleteTeam(team.id);
+			setTeams((prev) => prev.filter((item) => item.id !== team.id));
+			setActionMessage('Team deleted');
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : 'Failed to delete team');
+		}
+	};
+
 	return (
 		<Layout activeNav="teams" onNavigate={handleNavigate}>
 			<div className="p-6 space-y-6 transition-colors duration-200">
@@ -205,6 +283,9 @@ const Teams: React.FC = () => {
 						<p className="text-sm text-[var(--text-secondary)] mt-1">
 							Manage your AI development teams, monitor sprint progress, and track team activity.
 						</p>
+						{actionError && (
+							<p role="alert" className="mt-2 text-sm text-red-400">{actionError}</p>
+						)}
 					</div>
 					<div className="flex flex-nowrap items-center gap-2">
 						<div className="relative flex-1 min-w-[160px] max-w-xs">
@@ -241,7 +322,11 @@ const Teams: React.FC = () => {
 						</select>
 						<button
 							type="button"
-							onClick={() => setShowNewTeamModal(true)}
+							onClick={() => {
+								setActionError(null);
+								setActionMessage(null);
+								setShowNewTeamModal(true);
+							}}
 							className="btn-primary flex items-center gap-1 text-xs py-1.5 px-2.5 flex-shrink-0"
 						>
 							<FaPlus className="w-3 h-3" />
@@ -297,7 +382,7 @@ const Teams: React.FC = () => {
 							<div className="page-panel text-center py-12 status-badge error">
 								<p>{error}</p>
 								<button
-									onClick={() => window.location.reload()}
+									onClick={loadData}
 									className="mt-2 text-sm underline text-[var(--accent)]"
 								>
 									Retry
@@ -319,7 +404,29 @@ const Teams: React.FC = () => {
 						) : (
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								{filteredTeams.map((team) => (
-									<TeamCard key={team.id} team={team} onViewTeam={() => {}} />
+									<TeamCard
+										key={team.id}
+										team={team}
+										onViewTeam={() => handleViewTeam(team)}
+										menuItems={[
+											{ label: 'View', onClick: () => handleViewTeam(team) },
+											{
+												label: 'Edit',
+												onClick: () => {
+													setActionError(null);
+													setActionMessage(null);
+													setEditingTeam(team);
+												},
+											},
+											...(team.status !== 'active'
+												? [{ label: 'Activate', onClick: () => handleSetTeamStatus(team, 'active' as Team['status']) }]
+												: [{ label: 'Pause', onClick: () => handleSetTeamStatus(team, 'paused' as Team['status']) }]),
+											...(team.status !== 'archived'
+												? [{ label: 'Archive', onClick: () => handleSetTeamStatus(team, 'archived' as Team['status']) }]
+												: []),
+											{ label: 'Delete', onClick: () => handleDeleteTeam(team), danger: true },
+										]}
+									/>
 								))}
 							</div>
 						)}
@@ -401,13 +508,22 @@ const Teams: React.FC = () => {
 				</div>
 
 				{/* New Team Modal */}
+				{actionMessage && (
+					<div className="fixed bottom-4 right-4 z-40 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+						{actionMessage}
+					</div>
+				)}
+
 				{showNewTeamModal && (
 					<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
 						<div className="page-panel w-full max-w-md animate-fade-in">
 							<div className="flex items-center justify-between p-4 border-b border-[var(--border-default)]">
 								<h2 className="text-lg font-semibold text-[var(--text-primary)]">Create New Team</h2>
 								<button
-									onClick={() => setShowNewTeamModal(false)}
+									onClick={() => {
+										setShowNewTeamModal(false);
+										setActionError(null);
+									}}
 									className="p-1 rounded hover:bg-[var(--surface-hover)] text-[var(--text-secondary)]"
 								>
 									<FaTimes className="w-5 h-5" />
@@ -416,6 +532,9 @@ const Teams: React.FC = () => {
 							<form onSubmit={handleCreateTeam} className="p-4 space-y-4">
 								{error && (
 									<div className="status-badge error text-sm">{error}</div>
+								)}
+								{actionError && (
+									<div className="status-badge error text-sm">{actionError}</div>
 								)}
 								<div>
 									<label className="block text-sm text-[var(--text-secondary)] mb-1">Team Name</label>
@@ -449,7 +568,7 @@ const Teams: React.FC = () => {
 										type="button"
 										onClick={() => {
 											setShowNewTeamModal(false);
-											setError('');
+											setActionError(null);
 										}}
 										className="btn-secondary"
 										disabled={creating}
@@ -458,6 +577,73 @@ const Teams: React.FC = () => {
 									</button>
 									<button type="submit" className="btn-primary" disabled={creating}>
 										{creating ? 'Creating...' : 'Create Team'}
+									</button>
+								</div>
+							</form>
+						</div>
+					</div>
+				)}
+
+				{editingTeam && (
+					<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+						<div className="page-panel w-full max-w-md animate-fade-in">
+							<div className="flex items-center justify-between p-4 border-b border-[var(--border-default)]">
+								<h2 className="text-lg font-semibold text-[var(--text-primary)]">Edit Team</h2>
+								<button
+									onClick={() => {
+										setEditingTeam(null);
+										setActionError(null);
+									}}
+									className="p-1 rounded hover:bg-[var(--surface-hover)] text-[var(--text-secondary)]"
+								>
+									<FaTimes className="w-5 h-5" />
+								</button>
+							</div>
+							<form onSubmit={handleUpdateTeam} className="p-4 space-y-4">
+								{actionError && (
+									<div className="status-badge error text-sm">{actionError}</div>
+								)}
+								<div>
+									<label className="block text-sm text-[var(--text-secondary)] mb-1">Team Name</label>
+									<input
+										name="teamName"
+										type="text"
+										required
+										defaultValue={editingTeam.name}
+										className="input-field w-full"
+									/>
+								</div>
+								<div>
+									<label className="block text-sm text-[var(--text-secondary)] mb-1">Description</label>
+									<textarea
+										name="teamDescription"
+										rows={3}
+										defaultValue={editingTeam.description || ''}
+										className="input-field w-full resize-none"
+									/>
+								</div>
+								<div>
+									<label className="block text-sm text-[var(--text-secondary)] mb-1">Status</label>
+									<select name="teamStatus" defaultValue={editingTeam.status} className="input-field w-full">
+										<option value="active">Active</option>
+										<option value="paused">Paused</option>
+										<option value="archived">Archived</option>
+									</select>
+								</div>
+								<div className="flex justify-end gap-2 pt-2">
+									<button
+										type="button"
+										onClick={() => {
+											setEditingTeam(null);
+											setActionError(null);
+										}}
+										className="btn-secondary"
+										disabled={savingTeam}
+									>
+										Cancel
+									</button>
+									<button type="submit" className="btn-primary" disabled={savingTeam}>
+										{savingTeam ? 'Saving...' : 'Save Team'}
 									</button>
 								</div>
 							</form>

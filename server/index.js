@@ -7,6 +7,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const githubRouter = require('./routes/github');
 const aiRouter = require('./routes/ai');
+const agentMemoryRouter = require('./routes/agent-memory');
 const securityHeaders = require('./middleware/security-headers');
 const errorHandler = require('./middleware/error-handler');
 const { initSocketServer, broadcastActivity } = require('./socket');
@@ -56,6 +57,9 @@ app.get('/ready', async (_req, res) => {
  }
 });
 
+// ─── Public routes (no auth required) ────────────────────────────────────────
+app.use('/api/agent-memory', agentMemoryRouter);
+
 // ─── Auth utility (inline JWT verification for API routes) ────────────────────
 app.use('/api', async (req, res, next) => {
  try {
@@ -69,6 +73,7 @@ app.use('/api', async (req, res, next) => {
 // ─── Mount routes ─────────────────────────────────────────────────────────────
 app.use('/api/github', githubRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/agent-memory', agentMemoryRouter);
 
 // Next.js is authoritative for core APIs; preserve the incoming origin/cookie.
 app.use('/api', (req,res)=>{

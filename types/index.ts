@@ -14,13 +14,15 @@ export interface AgentConfig {
  temperature?: number;
  maxTokens?: number;
  systemPrompt?: string;
+ gatewayId?: string;
+ configuredModelId?: string;
 }
 
 export interface Agent {
  tasks?: Task[];
  id: string;
  name: string; // e.g. "Claude Dev #1"
- type: "anthropic" | "openai";
+ type: GatewayProvider;
  model: string; // "claude-sonnet-4-5" | "gpt-4"
  memberId: string;
  config: AgentConfig;
@@ -171,6 +173,8 @@ export type ActivityType =
  | "agent_started"
  | "agent_completed"
  | "agent_error"
+ | "agent_benched"
+ | "agent_joined"
  | "team_created"
  | "member_added"
  | "milestone_completed";
@@ -247,7 +251,8 @@ export type NavItem =
  | "reports"
  | "agents"
  | "activity"
- | "settings";
+ | "settings"
+ | "agent-memory";
 
 export interface NavConfig {
  id: NavItem;
@@ -283,6 +288,19 @@ export interface Gateway {
  createdAt: string;
 }
 
+export interface ConfiguredModel {
+ id: string;
+ name: string;
+ gatewayId: string;
+ gatewayName: string;
+ provider: GatewayProvider;
+ modelId: string;
+ assignments: number;
+ agentNames: string[];
+ createdAt: string;
+ updatedAt: string;
+}
+
 export interface StoredSettings {
  anthropicKey?: string;
  openaiKey?: string;
@@ -309,4 +327,40 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
  "join:team": (teamId: string) => void;
  "leave:team": (teamId: string) => void;
+}
+
+// ─── Agent Memory ──────────────────────────────────────────────────────
+
+export interface RoleGroup {
+ id: string;
+ name: string;
+ subtitle: string;
+ icon: string;
+ instructionCount: number;
+ skillCount: number;
+ instructions: InstructionFile[];
+ skills: Skill[];
+ assignments: AgentAssignment[];
+}
+
+export interface InstructionFile {
+ id: string;
+ filename: string;
+ title: string;
+ description: string;
+ content: string;
+ updatedAt: string;
+}
+
+export interface Skill {
+ id: string;
+ name: string;
+ level: string;
+ description: string;
+ updatedAt: string;
+}
+
+export interface AgentAssignment {
+ agentId: string;
+ agentName: string;
 }
