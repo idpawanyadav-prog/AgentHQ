@@ -160,6 +160,11 @@ export const api = {
 		}),
 	stopAgent: (id: string) =>
 		request(`/api/agents/${id}/stop`, { method: 'POST' }),
+	chatAgent: (id: string, data: { message: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> }) =>
+		request(`/api/agents/${id}/chat`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
 
 	getActivities: (teamId?: string, limit = 50) =>
 		request(`/api/activity?limit=${limit}${teamId ? `&teamId=${teamId}` : ''}`),

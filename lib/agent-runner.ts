@@ -4,6 +4,7 @@ import { parseSafeUrl } from './ssrf-guard';
 import { safeFetch } from './safe-fetch';
 import { enqueueJob, heartbeatJob, getJob, cancelJob, listJobs, type JobRecord } from './job-queue';
 import { logActivity } from './activity-service';
+import { resolveAgentModel } from './configured-models';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_PARALLEL_AGENTS = Number(process.env.MAX_PARALLEL_AGENTS || 5);
@@ -18,23 +19,24 @@ export async function startAgent(id: string, taskId: string) {
  const runningCount = await prisma.agent.count({ where: { status: 'working' } });
  if (runningCount >= MAX_PARALLEL_AGENTS) throw new Error('Maximum number of agents are already running');
 
- const config=typeof agent.config==='string'?JSON.parse(agent.config):agent.config || {};
- const gateway = config.gatewayId
- ? await prisma.gateway.findUnique({ where: { id: config.gatewayId } })
+ const { config, configuredModel, gatewayId, modelId, provider } = await resolveAgentModel(agent);
+ const gateway = gatewayId
+ ? await prisma.gateway.findUnique({ where: { id: gatewayId } })
  : await prisma.gateway.findFirst({
  where: { OR: [{ provider: agent.type }, { provider: 'custom' }] },
  orderBy: { isDefault: 'desc' },
  });
- const provider = (gateway?.provider || agent.type) as 'anthropic' | 'openai' | 'custom';
+ if (gatewayId && !gateway) throw new Error('Configured gateway for this agent was not found. Re-save the model or agent.');
+ const resolvedProvider = configuredModel?.provider || gateway?.provider || provider;
  const messages = [{
  role: 'user' as const,
  content: `${task.title}\n\n${task.description || ''}\n\nAcceptance criteria: ${task.acceptanceCriteria || '[]'}`,
  }];
 
- const key=gateway ? decrypt(gateway.apiKey) : provider==='anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY;
+ const key=gateway ? decrypt(gateway.apiKey) : resolvedProvider==='anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY;
  if(!key) throw new Error('Configure a provider gateway before starting this agent');
  if(gateway?.baseUrl) await parseSafeUrl(gateway.baseUrl);
- const payload={agentId:id,taskId,teamId:task.teamId,config,model:agent.model,provider,gatewayId:gateway?.id,messages};
+ const payload={agentId:id,taskId,teamId:task.teamId,config,model:modelId,provider:resolvedProvider,gatewayId:gateway?.id,configuredModelId:configuredModel?.id,messages};
  const job=await prisma.$transaction(async tx=>{
   if(await tx.agent.count({where:{status:'working'}})>=MAX_PARALLEL_AGENTS) throw new Error('Agent concurrency limit reached');
   const claimed=await tx.agent.updateMany({where:{id,status:{not:'working'}},data:{status:'working'}});

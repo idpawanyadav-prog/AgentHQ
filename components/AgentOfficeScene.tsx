@@ -17,6 +17,7 @@ interface AgentOfficeSceneProps {
 	agents: AgentWithMember[];
 	selectedMemberId?: string | null;
 	onSelect?: (selection: AgentOfficeSelection) => void;
+	className?: string;
 }
 
 const TEAM_COLORS = [0x2563eb, 0x059669, 0xd97706, 0x9333ea, 0x0891b2, 0xbe123c];
@@ -32,6 +33,7 @@ export type AgentOfficeSelection = {
 	agentName?: string;
 	agentModel?: string;
 	agentStatus?: Agent['status'];
+	openChat?: boolean;
 };
 
 function makeTextSprite(text: string, color = '#f8fafc') {
@@ -51,8 +53,86 @@ function makeTextSprite(text: string, color = '#f8fafc') {
 	texture.colorSpace = THREE.SRGBColorSpace;
 	const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
 	const sprite = new THREE.Sprite(material);
-	sprite.scale.set(4.2, 1.05, 1);
+	sprite.scale.set(3.4, 0.85, 1);
 	return sprite;
+}
+
+function makeNamePillSprite(text: string, memberType: Member['type']) {
+	const canvas = document.createElement('canvas');
+	canvas.width = 384;
+	canvas.height = 96;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return null;
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.fillStyle = 'rgba(253, 255, 248, 0.96)';
+	ctx.strokeStyle = 'rgba(21, 20, 20, 0.18)';
+	ctx.lineWidth = 3;
+	ctx.beginPath();
+	ctx.roundRect(18, 22, 348, 52, 26);
+	ctx.fill();
+	ctx.stroke();
+	ctx.fillStyle = memberType === 'human' ? '#2563eb' : '#7c3aed';
+	ctx.beginPath();
+	ctx.arc(48, 48, 10, 0, Math.PI * 2);
+	ctx.fill();
+	ctx.fillStyle = '#151414';
+	ctx.font = '700 22px Arial';
+	ctx.textBaseline = 'middle';
+	ctx.fillText(text.slice(0, 18), 68, 46, 210);
+	ctx.fillStyle = '#5a5a5a';
+	ctx.font = '700 12px Arial';
+	ctx.fillText('CHAT', 306, 47);
+	const texture = new THREE.CanvasTexture(canvas);
+	texture.colorSpace = THREE.SRGBColorSpace;
+	const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+	const sprite = new THREE.Sprite(material);
+	sprite.scale.set(1.55, 0.39, 1);
+	return sprite;
+}
+
+function makeSeatedPerson(selection: AgentOfficeSelection, memberType: Member['type']) {
+	const person = new THREE.Group();
+	const skin = new THREE.MeshStandardMaterial({ color: memberType === 'ai' ? 0xa5b4fc : 0xf2c9a0, roughness: 0.7 });
+	const hair = new THREE.MeshStandardMaterial({ color: memberType === 'ai' ? 0x4338ca : 0x2f1f16, roughness: 0.85 });
+	const shirt = new THREE.MeshStandardMaterial({ color: memberType === 'ai' ? 0x7c3aed : 0x2563eb, roughness: 0.75 });
+	const dark = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
+
+	const torso = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.46, 0.24), shirt);
+	torso.position.set(0, 0.78, 0.34);
+	person.add(torso);
+
+	const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 20, 20), skin);
+	head.position.set(0, 1.12, 0.27);
+	person.add(head);
+
+	const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.185, 20, 10), hair);
+	hairCap.scale.set(1, 0.58, 1);
+	hairCap.position.set(0, 1.22, 0.25);
+	person.add(hairCap);
+
+	const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.48, 12), skin);
+	leftArm.position.set(-0.24, 0.77, 0.06);
+	leftArm.rotation.set(1.18, 0.12, -0.55);
+	person.add(leftArm);
+
+	const rightArm = leftArm.clone();
+	rightArm.position.x = 0.25;
+	rightArm.rotation.z = 0.55;
+	person.add(rightArm);
+
+	const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.48, 12), dark);
+	leftLeg.position.set(-0.11, 0.43, 0.52);
+	leftLeg.rotation.x = Math.PI / 2.7;
+	person.add(leftLeg);
+
+	const rightLeg = leftLeg.clone();
+	rightLeg.position.x = 0.11;
+	person.add(rightLeg);
+
+	person.traverse((child) => {
+		child.userData.selection = selection;
+	});
+	return person;
 }
 
 function disposeObject(object: THREE.Object3D) {
@@ -65,7 +145,7 @@ function disposeObject(object: THREE.Object3D) {
 	});
 }
 
-export default function AgentOfficeScene({ teams, agents, selectedMemberId, onSelect }: AgentOfficeSceneProps) {
+export default function AgentOfficeScene({ teams, agents, selectedMemberId, onSelect, className = '' }: AgentOfficeSceneProps) {
 	const mountRef = useRef<HTMLDivElement | null>(null);
 	const zoomInRef = useRef<HTMLButtonElement | null>(null);
 	const zoomOutRef = useRef<HTMLButtonElement | null>(null);
@@ -165,7 +245,7 @@ export default function AgentOfficeScene({ teams, agents, selectedMemberId, onSe
 
 			const label = makeTextSprite(team.name);
 			if (label) {
-				label.position.set(0, 1.65, -2.75);
+				label.position.set(0, 2.25, -2.78);
 				bay.add(label);
 			}
 
@@ -227,6 +307,20 @@ export default function AgentOfficeScene({ teams, agents, selectedMemberId, onSe
 				chair.userData.selection = selection;
 				desk.add(chair);
 				clickTargets.push(chair);
+
+				const person = makeSeatedPerson(selection, member.type);
+				desk.add(person);
+				person.traverse((child) => {
+					if (child instanceof THREE.Mesh) clickTargets.push(child);
+				});
+
+				const namePill = makeNamePillSprite(member.name, member.type);
+				if (namePill) {
+					namePill.position.set(deskCol % 2 === 0 ? -0.05 : 0.05, 1.86 + deskRow * 0.08, 0.72);
+					namePill.userData.selection = { ...selection, openChat: true } satisfies AgentOfficeSelection;
+					desk.add(namePill);
+					clickTargets.push(namePill);
+				}
 
 				const status = new THREE.Mesh(
 					new THREE.SphereGeometry(0.12, 16, 16),
@@ -363,8 +457,8 @@ export default function AgentOfficeScene({ teams, agents, selectedMemberId, onSe
 	}, [agents, onSelect, selectedMemberId, teams]);
 
 	return (
-		<div className="relative">
-			<div ref={mountRef} className="h-[620px] min-h-[500px] w-full overflow-hidden rounded-lg bg-slate-950" />
+		<div className="relative h-full">
+			<div ref={mountRef} className={`h-[620px] min-h-[500px] w-full overflow-hidden rounded-lg bg-slate-950 ${className}`} />
 			<div className="absolute left-4 top-4 flex overflow-hidden rounded-md border border-white/10 bg-slate-950/80 shadow-lg backdrop-blur">
 				<button ref={zoomInRef} type="button" className="px-3 py-2 text-sm font-semibold text-white hover:bg-white/10" title="Zoom in">+</button>
 				<button ref={zoomOutRef} type="button" className="border-x border-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10" title="Zoom out">-</button>
