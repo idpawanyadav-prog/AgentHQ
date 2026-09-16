@@ -1,4 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { withAuth } from '../../../lib/auth';
+import { validateRoleGroupPayload } from '../../../lib/agent-memory-validation';
 import prisma from '../../../lib/prisma';
 
 function roleGroupIcon(name: string): string {
@@ -58,7 +60,7 @@ function serializeRoleGroup(group: any) {
 
 // GET /api/agent-memory - list role groups
 // POST /api/agent-memory - create role group
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (req.method === 'GET') {
 		try {
 			const groups = await prisma.roleGroup.findMany({
@@ -77,12 +79,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		}
 	} else if (req.method === 'POST') {
 		try {
-			const { name, description, color } = req.body;
-			if (!name || typeof name !== 'string') {
-				return res.status(400).json({ error: 'name is required' });
-			}
+			const validated = validateRoleGroupPayload(req.body);
+			if (!validated.ok) return res.status(400).json({ error: validated.error });
 			const group = await prisma.roleGroup.create({
-				data: { name: name.trim(), description: description?.trim() || null, color: color?.trim() || null },
+				data: {
+					name: validated.value.name!,
+					description: validated.value.description ?? null,
+					color: validated.value.color ?? null,
+				},
 				include: {
 					instructions: true,
 					skills: true,
@@ -99,3 +103,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		res.status(405).end(`Method ${req.method} Not Allowed`);
 	}
 }
+
+export default withAuth(handler);

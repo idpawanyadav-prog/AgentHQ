@@ -1,5 +1,14 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient, type Prisma } from '@prisma/client';
+
 const prisma = new PrismaClient();
+
+type GroupWithRelations = Prisma.RoleGroupGetPayload<{
+	include: {
+		instructions: { select: { id: true; filename: true; roleGroupId: true } };
+		skills: { select: { id: true; name: true; roleGroupId: true } };
+		assignments: { select: { id: true; agentId: true; roleGroupId: true } };
+	};
+}>;
 
 async function main() {
 	// 1. Count tables
@@ -22,7 +31,7 @@ async function main() {
 			assignments: { select: { id: true, agentId: true, roleGroupId: true } },
 		},
 	});
-	allGroups.forEach((g) => {
+	allGroups.forEach((g: GroupWithRelations) => {
 		console.log(`${g.name} (${g.id})`);
 		console.log(` instructions: ${g.instructions.length}`);
 		g.instructions.slice(0, 2).forEach((i) => console.log(` - ${i.filename} (roleGroupId=${i.roleGroupId})`));
@@ -33,25 +42,22 @@ async function main() {
 
 	// 3. Check orphans
 	console.log('\n=== Orphan check ===');
-	const orphanInst = await prisma.instructionFile.findMany({
-		where: { roleGroup: null },
+	const roleIds = new Set(allGroups.map((g: GroupWithRelations) => g.id));
+	const allInstructions = await prisma.instructionFile.findMany({
 		select: { id: true, filename: true, roleGroupId: true },
 	});
+	const orphanInst = allInstructions.filter((instruction) => !roleIds.has(instruction.roleGroupId));
 	console.log(`Instructions with no parent role: ${orphanInst.length}`);
 
-	const orphanSkill = await prisma.skill.findMany({
-		where: { roleGroup: null },
+	const allSkills = await prisma.skill.findMany({
 		select: { id: true, name: true, roleGroupId: true },
 	});
+	const orphanSkill = allSkills.filter((skill) => !roleIds.has(skill.roleGroupId));
 	console.log(`Skills with no parent role: ${orphanSkill.length}`);
 
 	// 4. Mismatch check
 	console.log('\n=== Mismatch (id vs roleGroupId) ===');
-	const mismatched = await prisma.instructionFile.findMany({
-		select: { id: true, filename: true, roleGroupId: true },
-	});
-	const roleIds = new Set(allGroups.map((g) => g.id));
-	mismatched.forEach((i) => {
+	allInstructions.forEach((i) => {
 		if (!roleIds.has(i.roleGroupId)) {
 			console.log(`MISMATCH: instruction ${i.filename} roleGroupId=${i.roleGroupId} not in role ids`);
 		}

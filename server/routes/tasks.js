@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
 const { broadcastActivity, broadcastTaskUpdate } = require('../socket');
-const { withAuth } = require('../middleware/auth');
+const { authMiddleware: withAuth } = require('../middleware/auth');
 const { validate, createTaskSchema, updateTaskSchema, assignTaskSchema } = require('../middleware/validate');
 
 // ─── List tasks ───────────────────────────────────────────────────────────────

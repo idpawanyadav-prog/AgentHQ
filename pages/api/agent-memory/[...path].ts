@@ -1,5 +1,11 @@
 import { withAuth } from '../../../lib/auth';
 import type { NextApiRequest, NextApiResponse } from 'next';
+import {
+	validateAgentId,
+	validateInstructionPayload,
+	validateRoleGroupPayload,
+	validateSkillPayload,
+} from '../../../lib/agent-memory-validation';
 import prisma from '../../../lib/prisma';
 
 function roleGroupIcon(name: string): string {
@@ -93,14 +99,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
 		if (req.method === 'PUT' && !action) {
 			try {
-				const { name, description, color } = req.body;
+				const validated = validateRoleGroupPayload(req.body, true);
+				if (!validated.ok) return res.status(400).json({ error: validated.error });
 				const group = await prisma.roleGroup.update({
 					where: { id: entityId },
-					data: {
-						...(name !== undefined && { name }),
-						...(description !== undefined && { description }),
-						...(color !== undefined && { color }),
-					},
+					data: validated.value,
 					include: {
 						instructions: { orderBy: { createdAt: 'asc' } },
 						skills: { orderBy: { createdAt: 'asc' } },
@@ -146,16 +149,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (entity === 'role-groups' && action === 'instructions' && entityId) {
 		if (req.method === 'POST') {
 			try {
-				const { filename, title, content } = req.body;
-				if (!filename || !content) {
-					return res.status(400).json({ error: 'filename and content are required' });
-				}
+				const validated = validateInstructionPayload(req.body);
+				if (!validated.ok) return res.status(400).json({ error: validated.error });
 				const group = await prisma.roleGroup.findUnique({ where: { id: entityId } });
 				if (!group) {
 					return res.status(404).json({ error: 'Role group not found' });
 				}
 				const instruction = await prisma.instructionFile.create({
-					data: { roleGroupId: entityId, filename, title: title || null, content },
+					data: {
+						roleGroupId: entityId,
+						filename: validated.value.filename!,
+						title: validated.value.title ?? null,
+						content: validated.value.content!,
+					},
 				});
 				res.status(201).json(serializeInstruction(instruction));
 			} catch (err) {
@@ -169,14 +175,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (entity === 'instructions' && entityId && !action) {
 		if (req.method === 'PUT') {
 			try {
-				const { filename, title, content } = req.body;
+				const validated = validateInstructionPayload(req.body, true);
+				if (!validated.ok) return res.status(400).json({ error: validated.error });
 				const instruction = await prisma.instructionFile.update({
 					where: { id: entityId },
-					data: {
-						...(filename !== undefined && { filename }),
-						...(title !== undefined && { title }),
-						...(content !== undefined && { content }),
-					},
+					data: validated.value,
 				});
 				res.status(200).json(serializeInstruction(instruction));
 			} catch (err) {
@@ -203,10 +206,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (entity === 'role-groups' && action === 'skills' && entityId) {
 		if (req.method === 'POST') {
 			try {
-				const { name, level, description } = req.body;
-				if (!name) {
-					return res.status(400).json({ error: 'name is required' });
-				}
+				const validated = validateSkillPayload(req.body);
+				if (!validated.ok) return res.status(400).json({ error: validated.error });
 				const group = await prisma.roleGroup.findUnique({ where: { id: entityId } });
 				if (!group) {
 					return res.status(404).json({ error: 'Role group not found' });
@@ -214,9 +215,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 				const skill = await prisma.skill.create({
 					data: {
 						roleGroupId: entityId,
-						name,
-						level: level || 'intermediate',
-						description: description || null,
+						name: validated.value.name!,
+						level: validated.value.level || 'intermediate',
+						description: validated.value.description ?? null,
 					},
 				});
 				res.status(201).json(serializeSkill(skill));
@@ -231,14 +232,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (entity === 'skills' && entityId && !action) {
 		if (req.method === 'PUT') {
 			try {
-				const { name, level, description } = req.body;
+				const validated = validateSkillPayload(req.body, true);
+				if (!validated.ok) return res.status(400).json({ error: validated.error });
 				const skill = await prisma.skill.update({
 					where: { id: entityId },
-					data: {
-						...(name !== undefined && { name }),
-						...(level !== undefined && { level }),
-						...(description !== undefined && { description }),
-					},
+					data: validated.value,
 				});
 				res.status(200).json(serializeSkill(skill));
 			} catch (err) {
@@ -265,18 +263,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (entity === 'role-groups' && action === 'assignments' && entityId) {
 		if (req.method === 'POST') {
 			try {
-				const { agentId, agentName, agentStatus } = req.body;
-				if (!agentId || !agentName) {
-					return res.status(400).json({ error: 'agentId and agentName are required' });
-				}
+				const validated = validateAgentId(req.body);
+				if (!validated.ok) return res.status(400).json({ error: validated.error });
+				const agentId = validated.value;
 				const group = await prisma.roleGroup.findUnique({ where: { id: entityId } });
 				if (!group) {
 					return res.status(404).json({ error: 'Role group not found' });
 				}
+				const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+				if (!agent) {
+					return res.status(404).json({ error: 'Agent not found' });
+				}
 				const assignment = await prisma.agentRoleAssignment.upsert({
 					where: { roleGroupId_agentId: { roleGroupId: entityId, agentId } },
-					update: { agentName, ...(agentStatus !== undefined && { agentStatus }) },
-					create: { roleGroupId: entityId, agentId, agentName, agentStatus: agentStatus || 'active' },
+					update: { agentName: agent.name, agentStatus: agent.status },
+					create: { roleGroupId: entityId, agentId, agentName: agent.name, agentStatus: agent.status },
 				});
 				res.status(201).json(serializeAssignment(assignment));
 			} catch (err) {

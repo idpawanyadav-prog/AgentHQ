@@ -5,6 +5,7 @@ import { decrypt } from '../../../../lib/secrets';
 import { safeFetch } from '../../../../lib/safe-fetch';
 import { parseSafeUrl } from '../../../../lib/ssrf-guard';
 import { resolveAgentModel } from '../../../../lib/configured-models';
+import { buildAgentSystemPrompt } from '../../../../lib/agent-context';
 
 type ChatMessage = {
 	role: 'user' | 'assistant';
@@ -55,6 +56,14 @@ export default withAuth(async (req: NextApiRequest, res: NextApiResponse) => {
 	const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
 	const history = Array.isArray(req.body?.history) ? req.body.history as ChatMessage[] : [];
 	if (!message) return res.status(400).json({ error: 'Message is required' });
+	if (message.length > 8000) return res.status(400).json({ error: 'Message must be 8000 characters or fewer' });
+	if (history.length > 20) return res.status(400).json({ error: 'History may include at most 20 messages' });
+	const invalidHistory = history.some((item) =>
+		!['user', 'assistant'].includes(item?.role) ||
+		typeof item?.content !== 'string' ||
+		item.content.length > 8000
+	);
+	if (invalidHistory) return res.status(400).json({ error: 'History messages are invalid or too large' });
 
 	const agent = await prisma.agent.findUnique({ where: { id: req.query.id }, include: { member: true } });
 	if (!agent) return res.status(404).json({ error: 'Agent not found' });
@@ -81,16 +90,19 @@ export default withAuth(async (req: NextApiRequest, res: NextApiResponse) => {
 		rawBase = safe.url.toString();
 	}
 	const base = rawBase.replace(/\/+$/, '').replace(/\/v1$/, '');
-	const systemPrompt = config.systemPrompt || `You are ${agent.name}, an agent in the ${agent.member.role} role. Answer as this office agent and be concise, practical, and task-focused.`;
+	const systemPrompt = await buildAgentSystemPrompt(
+		agent.id,
+		`You are ${agent.name}, an agent in the ${agent.member.role} role. Answer as this office agent and be concise, practical, and task-focused.`
+	);
+	if (systemPrompt.length > 12000) return res.status(400).json({ error: 'System prompt is too large' });
 	const messages = [
 		...history
 			.filter((item) => ['user', 'assistant'].includes(item.role) && typeof item.content === 'string')
-			.slice(-12)
+			.slice(-20)
 			.map((item) => ({ role: item.role, content: item.content })),
 		{ role: 'user' as const, content: message },
 	];
 
-	await prisma.agent.update({ where: { id: agent.id }, data: { status: 'working' } });
 	const startedAt = Date.now();
 
 	try {
@@ -110,8 +122,7 @@ export default withAuth(async (req: NextApiRequest, res: NextApiResponse) => {
 		});
 
 		if (!response.ok) {
-			const details = await response.text().catch(() => '');
-			throw new Error(`Gateway returned HTTP ${response.status}${details ? `: ${details.slice(0, 240)}` : ''}`);
+			throw new Error(`Gateway request failed with HTTP ${response.status}`);
 		}
 
 		const result = await response.json();
@@ -120,9 +131,7 @@ export default withAuth(async (req: NextApiRequest, res: NextApiResponse) => {
 			throw new Error('Gateway returned a successful response, but no message text was found in it');
 		}
 		const usage = usageFromProviderResult(result);
-		await prisma.$transaction([
-			prisma.agent.update({ where: { id: agent.id }, data: { status: 'idle' } }),
-			prisma.activity.create({
+		await prisma.activity.create({
 				data: {
 					teamId: agent.member.teamId,
 					memberId: agent.memberId,
@@ -130,11 +139,10 @@ export default withAuth(async (req: NextApiRequest, res: NextApiResponse) => {
 					description: `${agent.name} replied in Agent Office`,
 					meta: JSON.stringify({ agentId: agent.id, provider: resolvedProvider, model: modelId, gatewayId: gateway?.id, configuredModelId: configuredModel?.id, usage, latencyMs: Date.now() - startedAt }),
 				},
-			}),
-		]);
+			});
 		return res.json({ reply, usage, provider: resolvedProvider, model: modelId });
 	} catch (err) {
-		await prisma.agent.update({ where: { id: agent.id }, data: { status: 'error' } }).catch(() => undefined);
+		console.error('[Agent Chat]', err);
 		return res.status(500).json({ error: err instanceof Error ? err.message : 'Gateway chat failed' });
 	}
 });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '@/lib/api-client';
-import type { Agent, ConfiguredModel, RoleGroup, Team } from '@/types';
+import type { ConfiguredModel, RoleGroup, Team } from '@/types';
 
 const BENCH_TEAM_NAME = 'On Bench';
 const BENCH_TEAM_ID = 'on-bench';
@@ -66,24 +66,17 @@ export default function CreateRecord({ kind, onCreated }: { kind: 'agent' | 'spr
 				const configuredModel = configuredModels.find((model) => model.id === configuredModelId);
 				if (!configuredModel) throw new Error('Select a configured model');
 
-				const agent = await api.createAgent({
+				await api.createAgent({
 					name,
 					teamId: String(values.get('parent')),
 					type: configuredModel.provider,
 					model: configuredModel.modelId,
+					configuredModelId: configuredModel.id,
+					roleGroupId: String(values.get('roleGroup') || '') || undefined,
 					config: {
-						gatewayId: configuredModel.gatewayId,
 						configuredModelId: configuredModel.id,
 					},
-				}) as Agent;
-				const roleGroupId = String(values.get('roleGroup') || '');
-				if (roleGroupId) {
-					await api.assignAgent(roleGroupId, {
-						agentId: agent.id,
-						agentName: agent.name,
-						agentStatus: agent.status,
-					});
-				}
+				});
 			} else {
 				await api.createSprint({ name, projectId: String(values.get('parent')), goal: String(values.get('goal')) });
 			}

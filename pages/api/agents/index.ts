@@ -1,6 +1,7 @@
 import { withAuth } from '../../../lib/auth';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
+import { readConfiguredModels } from '../../../lib/configured-models';
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
  const { teamId } = req.query;
@@ -13,13 +14,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  res.status(200).json(agents);
  } else if (req.method === 'POST') {
  try {
- const { name, type, model, memberId, teamId: bodyTeamId, config } = req.body;
- if (![name, model].every(v => typeof v === 'string' && v.trim()) || !['openai','anthropic','custom'].includes(type)) {
+ const { name, type, model, memberId, teamId: bodyTeamId, config, configuredModelId, roleGroupId } = req.body;
+ const requestedConfiguredModelId = typeof configuredModelId === 'string' && configuredModelId.trim()
+ ? configuredModelId.trim()
+ : typeof config?.configuredModelId === 'string'
+ ? config.configuredModelId.trim()
+ : '';
+ if (typeof name !== 'string' || !name.trim()) {
  return res.status(400).json({error:'Valid name, model and gateway provider are required'});
  }
  if (!memberId && (typeof bodyTeamId !== 'string' || !bodyTeamId.trim())) {
  return res.status(400).json({error:'teamId is required'});
  }
+ const configuredModels = await readConfiguredModels();
+ const configuredModel = requestedConfiguredModelId
+ ? configuredModels.find((item) => item.id === requestedConfiguredModelId)
+ : undefined;
+ if (requestedConfiguredModelId && !configuredModel) return res.status(400).json({error:'Configured model not found'});
+ if (!configuredModel && (![model].every(v => typeof v === 'string' && v.trim()) || !['openai','anthropic','custom'].includes(type))) {
+ return res.status(400).json({error:'Valid name, model and gateway provider are required'});
+ }
+ const gateway = configuredModel
+ ? await prisma.gateway.findUnique({ where: { id: configuredModel.gatewayId } })
+ : null;
+ if (configuredModel && !gateway) return res.status(400).json({error:'Configured model gateway not found'});
  const agent = await prisma.$transaction(async (tx) => {
  let resolvedMemberId = memberId;
  if (resolvedMemberId) {
@@ -38,22 +56,41 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  });
  resolvedMemberId = member.id;
  }
- return tx.agent.create({
+ if (roleGroupId) {
+ const group = await tx.roleGroup.findUnique({where:{id:roleGroupId}});
+ if (!group) throw new Error('Role group not found');
+ }
+ const resolvedConfig = {
+ ...(config && typeof config === 'object' ? config : {}),
+ ...(configuredModel ? { gatewayId: configuredModel.gatewayId, configuredModelId: configuredModel.id } : {}),
+ };
+ const createdAgent = await tx.agent.create({
  data: {
  name: name.trim(),
- type,
- model: model.trim(),
+ type: configuredModel?.provider || type,
+ model: configuredModel?.modelId || model.trim(),
  memberId: resolvedMemberId,
- config: config ? JSON.stringify(config) : "{}",
+ config: JSON.stringify(resolvedConfig),
  status: 'idle',
  },
  include: { member: true },
  });
+ if (roleGroupId) {
+ await tx.agentRoleAssignment.create({
+ data: {
+ roleGroupId,
+ agentId: createdAgent.id,
+ agentName: createdAgent.name,
+ agentStatus: createdAgent.status,
+ },
+ });
+ }
+ return createdAgent;
  });
  res.status(201).json(agent);
  } catch (err) {
  const message = err instanceof Error ? err.message : 'Failed to create agent';
- const status = message === 'Member not found' || message === 'Team not found' ? 400 : 500;
+ const status = ['Member not found', 'Team not found', 'Role group not found'].includes(message) ? 400 : 500;
  res.status(status).json({error: message});
  return;
  }

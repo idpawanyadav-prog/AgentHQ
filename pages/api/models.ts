@@ -25,6 +25,43 @@ function parseAgentConfig(config: unknown): Record<string, any> {
  }
 }
 
+function modelAllowedByGateway(gatewayModel: string, modelId: string) {
+	const allowed = gatewayModel
+		.split(/[\s,]+/)
+		.map((item) => item.trim())
+		.filter(Boolean);
+	return allowed.length === 0 || allowed.includes(modelId);
+}
+
+async function resolveModelInput(body: Record<string, unknown>) {
+	const name = typeof body.name === 'string' ? body.name.trim() : '';
+	const gatewayId = typeof body.gatewayId === 'string' ? body.gatewayId.trim() : '';
+	const modelId = typeof body.modelId === 'string' ? body.modelId.trim() : '';
+	if (!name || !gatewayId || !modelId) {
+		return { ok: false as const, status: 400, error: 'Model name, gateway and selected model are required' };
+	}
+	const gateway = await prisma.gateway.findUnique({ where: { id: gatewayId } });
+	if (!gateway) {
+		return { ok: false as const, status: 404, error: 'Gateway not found' };
+	}
+	if (!['anthropic', 'openai', 'custom'].includes(gateway.provider)) {
+		return { ok: false as const, status: 400, error: 'Gateway provider is not supported' };
+	}
+	if (!modelAllowedByGateway(gateway.model, modelId)) {
+		return { ok: false as const, status: 400, error: 'Selected model is not available for this gateway' };
+	}
+	return {
+		ok: true as const,
+		value: {
+			name,
+			gatewayId: gateway.id,
+			gatewayName: gateway.name,
+			provider: gateway.provider as ConfiguredModelRecord['provider'],
+			modelId,
+		},
+	};
+}
+
 async function readConfiguredModels(): Promise<ConfiguredModelRecord[]> {
  const setting = await prisma.setting.findUnique({ where: { key: MODELS_SETTING_KEY } });
  if (!setting) return [];
@@ -66,22 +103,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  }
 
  if (req.method === 'POST') {
- const { name, gatewayId, gatewayName, provider, modelId } = req.body;
- if (![name, gatewayId, gatewayName, modelId].every((value) => typeof value === 'string' && value.trim())) {
- return res.status(400).json({ error: 'Model name, gateway and selected model are required' });
- }
- if (!['anthropic', 'openai', 'custom'].includes(provider)) {
- return res.status(400).json({ error: 'Invalid gateway provider' });
- }
+ const resolved = await resolveModelInput(req.body);
+ if (!resolved.ok) return res.status(resolved.status).json({ error: resolved.error });
  const now = new Date().toISOString();
  const models = await readConfiguredModels();
  const model: ConfiguredModelRecord = {
  id: `model-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
- name: name.trim(),
- gatewayId,
- gatewayName,
- provider,
- modelId,
+ ...resolved.value,
  createdAt: now,
  updatedAt: now,
  };
@@ -91,14 +119,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  }
 
  if (req.method === 'PUT') {
- const { id, name, gatewayId, gatewayName, provider, modelId } = req.body;
+ const { id } = req.body;
  if (typeof id !== 'string' || !id.trim()) return res.status(400).json({ error: 'Model id is required' });
- if (![name, gatewayId, gatewayName, modelId].every((value) => typeof value === 'string' && value.trim())) {
- return res.status(400).json({ error: 'Model name, gateway and selected model are required' });
- }
- if (!['anthropic', 'openai', 'custom'].includes(provider)) {
- return res.status(400).json({ error: 'Invalid gateway provider' });
- }
+ const resolved = await resolveModelInput(req.body);
+ if (!resolved.ok) return res.status(resolved.status).json({ error: resolved.error });
  const models = await readConfiguredModels();
  const existing = models.find((model) => model.id === id);
  if (!existing) return res.status(404).json({ error: 'Model not found' });
@@ -107,11 +131,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  model.id === id
  ? {
  ...model,
- name: name.trim(),
- gatewayId,
- gatewayName,
- provider,
- modelId,
+ ...resolved.value,
  updatedAt: new Date().toISOString(),
  }
  : model

@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
-const { withAuth } = require('../middleware/auth');
+const { authMiddleware: withAuth } = require('../middleware/auth');
 
 // All routes are protected — require authenticated user
 router.use(withAuth);

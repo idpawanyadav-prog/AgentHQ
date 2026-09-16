@@ -5,6 +5,7 @@ import { safeFetch } from './safe-fetch';
 import { enqueueJob, heartbeatJob, getJob, cancelJob, listJobs, type JobRecord } from './job-queue';
 import { logActivity } from './activity-service';
 import { resolveAgentModel } from './configured-models';
+import { buildAgentSystemPrompt } from './agent-context';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_PARALLEL_AGENTS = Number(process.env.MAX_PARALLEL_AGENTS || 5);
@@ -28,6 +29,7 @@ export async function startAgent(id: string, taskId: string) {
  });
  if (gatewayId && !gateway) throw new Error('Configured gateway for this agent was not found. Re-save the model or agent.');
  const resolvedProvider = configuredModel?.provider || gateway?.provider || provider;
+ const systemPrompt = await buildAgentSystemPrompt(id, 'Help complete the task. Return your work and explain any remaining steps.');
  const messages = [{
  role: 'user' as const,
  content: `${task.title}\n\n${task.description || ''}\n\nAcceptance criteria: ${task.acceptanceCriteria || '[]'}`,
@@ -36,7 +38,7 @@ export async function startAgent(id: string, taskId: string) {
  const key=gateway ? decrypt(gateway.apiKey) : resolvedProvider==='anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY;
  if(!key) throw new Error('Configure a provider gateway before starting this agent');
  if(gateway?.baseUrl) await parseSafeUrl(gateway.baseUrl);
- const payload={agentId:id,taskId,teamId:task.teamId,config,model:modelId,provider:resolvedProvider,gatewayId:gateway?.id,configuredModelId:configuredModel?.id,messages};
+ const payload={agentId:id,taskId,teamId:task.teamId,config:{...config,systemPrompt},model:modelId,provider:resolvedProvider,gatewayId:gateway?.id,configuredModelId:configuredModel?.id,messages};
  const job=await prisma.$transaction(async tx=>{
   if(await tx.agent.count({where:{status:'working'}})>=MAX_PARALLEL_AGENTS) throw new Error('Agent concurrency limit reached');
   const claimed=await tx.agent.updateMany({where:{id,status:{not:'working'}},data:{status:'working'}});

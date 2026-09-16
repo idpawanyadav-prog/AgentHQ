@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const { withAuth } = require('../middleware/auth');
+const { authMiddleware: withAuth } = require('../middleware/auth');
 const { broadcastActivity } = require('../socket');
 const { validate, createProjectSchema, updateProjectSchema, updateMilestoneSchema, createMilestoneSchema } = require('../middleware/validate');
 

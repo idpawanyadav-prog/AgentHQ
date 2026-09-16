@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
 const { broadcastActivity } = require('../socket');
-const { withAuth } = require('../middleware/auth');
+const { authMiddleware: withAuth } = require('../middleware/auth');
 const { validate, createTeamSchema, updateTeamSchema } = require('../middleware/validate');
 
 // All routes are protected — require authenticated user
