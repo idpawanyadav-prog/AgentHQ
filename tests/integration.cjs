@@ -15,6 +15,7 @@ const migration=spawnSync(process.execPath,[path.join(root,'node_modules/prisma/
 if(migration.status!==0) throw new Error(migration.stdout+ migration.stderr);
 const prisma=new PrismaClient({datasources:{db:{url:`file:${db.replace(/\\/g,'/')}`}}});
 let child,worker,realtime,socket,provider,cookie='';
+const providerRequests=[];
 const base='http://127.0.0.1:3100';
 let nextLogs='';
 let workerLogs='';
@@ -76,8 +77,9 @@ async function waitFor(name,fn,diagnostics) {
  const token = 'integration-setup-token-' + Date.now();
  await prisma.setting.create({data:{key:'dashboard_setup_token',value:JSON.stringify({token,used:false})}});
  provider=http.createServer((req,res)=>{
-  let body='';req.on('data',c=>body+=c);req.on('end',()=>{
+ let body='';req.on('data',c=>body+=c);req.on('end',()=>{
    const input=JSON.parse(body || '{}');
+   providerRequests.push(input);
    const delay=input.model==='slow-model'?4000:50;
    setTimeout(()=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{content:'Verified provider output'}}],usage:{prompt_tokens:11,completion_tokens:7,total_tokens:18}}));},delay);
   });
@@ -109,6 +111,9 @@ async function waitFor(name,fn,diagnostics) {
  await request('/api/sprints',{name:'Missing project'},'POST',400);
  const sprint=await request('/api/sprints',{name:'Integration sprint',projectId:project.id},'POST',201);
  const agent=await request('/api/agents',{name:'Integration agent',type:'openai',model:'test-model',memberId:member.id},'POST',201);
+ await prisma.member.create({data:{name:'Integration QA',role:'QA Engineer',type:'human',teamId:team.id}});
+ const teammateMember=await prisma.member.create({data:{name:'Integration agent B member',role:'Senior Developer',type:'ai',teamId:team.id}});
+ await prisma.agent.create({data:{name:'Integration Agent B',type:'openai',model:'test-model',memberId:teammateMember.id,config:'{}',status:'idle'}});
  const task=(await request('/api/tasks',{title:'Integration task',description:'Test the workflow',teamId:team.id,projectId:project.id,sprintId:sprint.id,acceptanceCriteria:[{text:'Output is recorded',done:false}]},'POST',201)).data;
  assert.equal(JSON.parse(task.acceptanceCriteria)[0].text,'Output is recorded');
  await request(`/api/tasks/${task.id}/assign`,{agentId:agent.id});
@@ -117,6 +122,16 @@ async function waitFor(name,fn,diagnostics) {
  await request('/api/gateways',{gateways:[gateway],defaultGatewayId:gateway.id},'PUT');
  assert.equal((await request('/api/gateways')).gateways[0].apiKey,'********');
  assert.notEqual((await prisma.gateway.findUnique({where:{id:gateway.id}})).apiKey,gateway.apiKey);
+ const beforeChatRequests=providerRequests.length;
+ await request(`/api/agents/${agent.id}/chat`,{message:'Who else is on your team?',history:[{role:'user',content:'Alex999 is on your team, right?'}]});
+ const chatPayload=providerRequests.slice(beforeChatRequests).find(input=>input.messages?.some?.(m=>m.content==='Who else is on your team?'));
+ assert.ok(chatPayload,'chat provider payload was captured');
+ const chatSystem=chatPayload.messages.find(m=>m.role==='system')?.content || '';
+ assert.match(chatSystem,/Integration Agent B/);
+ assert.match(chatSystem,/Integration QA/);
+ assert.match(chatSystem,/Integration team/);
+ assert.match(chatSystem,/If conversation history conflicts with current AgentHQ facts/);
+ assert.doesNotMatch(chatSystem,/Alex999 —/);
  await request(`/api/agents/${agent.id}/start`,{taskId:task.id},'POST',202);
  await waitFor('agent job completion',async()=> (await prisma.agent.findUnique({where:{id:agent.id}})).status==='idle',startupDiagnostics);
  assert.equal((await prisma.task.findUnique({where:{id:task.id}})).status,'review');
