@@ -188,6 +188,35 @@ export const api = {
 	deleteProject: (id: string) =>
 		request(`/api/projects/${id}`, { method: 'DELETE' }),
 
+	// Project Control
+	getProjectControlStatus: (projectId: string) =>
+		request(`/api/project-control/status?projectId=${encodeURIComponent(projectId)}`),
+	chatProjectControl: (data: {
+		projectId: string;
+		persona: 'project-control' | 'scrum-master' | 'business-analyst';
+		message: string;
+		history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+	}) =>
+		request('/api/project-control/chat', {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	proposeStaffing: (data: { projectId: string; requirement?: string; targetAgentCount?: number }) =>
+		request('/api/project-control/staffing', {
+			method: 'POST',
+			body: JSON.stringify({ action: 'propose', ...data }),
+		}),
+	applyStaffing: (data: {
+		projectId: string;
+		approved: boolean;
+		hires?: Array<{ name: string; role: string; configuredModelId: string; roleGroupId?: string | null }>;
+		removals?: Array<{ agentId: string; name: string; role: string; reason: string }>;
+	}) =>
+		request('/api/project-control/staffing', {
+			method: 'POST',
+			body: JSON.stringify({ action: 'apply', ...data }),
+		}),
+
 	// Sprints
 	getSprints: (params?: { teamId?: string; projectId?: string }) =>
 		request(`/api/sprints${buildQuery(params || {})}`),

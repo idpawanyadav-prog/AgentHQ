@@ -1,5 +1,5 @@
 import React from "react";
-import { FaBrain, FaBuilding } from "react-icons/fa";
+import { FaBrain, FaBuilding, FaProjectDiagram } from "react-icons/fa";
 import type { NavItem, NavConfig } from "../types";
 
 const NAV_ITEMS: NavConfig[] = [
@@ -75,6 +75,12 @@ const NAV_ITEMS: NavConfig[] = [
 				<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 			</svg>
 		),
+	},
+	{
+		id: "project-control",
+		label: "Project Control",
+		href: "/project-control",
+		icon: FaProjectDiagram,
 	},
 	{
 		id: "activity",

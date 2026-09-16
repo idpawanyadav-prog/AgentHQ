@@ -247,6 +247,7 @@ export type NavItem =
  | "tasks"
  | "employees"
  | "projects"
+ | "project-control"
  | "models"
  | "cost"
  | "reports"
