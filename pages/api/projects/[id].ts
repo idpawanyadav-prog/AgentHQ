@@ -13,6 +13,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  team: true,
  milestones: { orderBy: { order: 'asc' } },
  sprints: { orderBy: { order: 'asc' } },
+ executionRuns: { orderBy: { createdAt: 'desc' }, take: 20 },
  },
  });
  if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -22,7 +23,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  res.status(500).json({ error: 'Failed to fetch project', details: err instanceof Error ? err.message : 'Unknown' });
  }
  } else if (req.method === 'PUT') {
- const { name, description, status, progress } = req.body;
+ const { name, description, status, progress, repoUrl, repositoryProvider, repositoryMode, repositoryStatus, defaultBranch } = req.body;
  try {
  const project = await prisma.project.update({
  where: { id: id as string },
@@ -31,6 +32,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  ...(description !== undefined && { description: description || null }),
  ...(status !== undefined && { status }),
  ...(progress !== undefined && { progress }),
+ ...(repoUrl !== undefined && { repoUrl: repoUrl || null }),
+ ...(repositoryProvider !== undefined && { repositoryProvider: repositoryProvider || null }),
+ ...(repositoryMode !== undefined && { repositoryMode: repositoryMode || 'none' }),
+ ...(repositoryStatus !== undefined && { repositoryStatus: repositoryStatus || 'unconfigured' }),
+ ...(defaultBranch !== undefined && { defaultBranch: defaultBranch || 'main' }),
  },
  include: { team: true, milestones: true, sprints: true },
  });

@@ -32,7 +32,7 @@ type StaffingProposal = {
 };
 
 type ProjectControlStatus = {
-	project: { id: string; name: string; description?: string; status: string; progress: number; repoUrl?: string };
+	project: { id: string; name: string; description?: string; status: string; progress: number; repoUrl?: string; repositoryMode?: string; repositoryStatus?: string; defaultBranch?: string };
 	team: { id: string; name: string; status: string; memberCount: number; humanMemberCount: number; agentCount: number };
 	agents: Array<{ id: string; name: string; role: string; status: string; activeTaskCount: number; blockedTaskCount: number; capacity: string }>;
 	taskCounts: Record<string, number>;
@@ -147,6 +147,7 @@ function ProposalEditor({
 
 export default function ProjectControlPage() {
 	const [projects, setProjects] = useState<Array<{ id: string; name: string; status: string }>>([]);
+	const [useExistingProject, setUseExistingProject] = useState(false);
 	const [projectId, setProjectId] = useState('');
 	const [status, setStatus] = useState<ProjectControlStatus | null>(null);
 	const [persona, setPersona] = useState<Persona>('project-control');
@@ -154,6 +155,10 @@ export default function ProjectControlPage() {
 	const [message, setMessage] = useState('');
 	const [targetCount, setTargetCount] = useState(0);
 	const [proposal, setProposal] = useState<StaffingProposal | null>(null);
+	const [executionProposal, setExecutionProposal] = useState<Record<string, any> | null>(null);
+	const [runs, setRuns] = useState<Array<Record<string, any>>>([]);
+	const [squads, setSquads] = useState<Array<Record<string, any>>>([]);
+	const [governance, setGovernance] = useState<Record<string, any> | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [chatting, setChatting] = useState(false);
 	const [proposing, setProposing] = useState(false);
@@ -177,19 +182,38 @@ export default function ProjectControlPage() {
 	}, []);
 
 	useEffect(() => {
-		if (!projectId) return;
+		if (!useExistingProject || !projectId) {
+			setStatus(null);
+			return;
+		}
 		let cancelled = false;
 		setError(null);
-		api.getProjectControlStatus(projectId)
-			.then((data) => {
+		Promise.all([
+			api.getProjectControlStatus(projectId),
+			api.getProjectGovernance(projectId).catch(() => null),
+			api.getSquads(projectId).catch(() => []),
+		])
+			.then(([data, governanceData, squadData]) => {
 				if (cancelled) return;
 				setStatus(data);
 				setTargetCount(data.team.agentCount);
 				setProposal(null);
+				setExecutionProposal(null);
+				setGovernance(governanceData);
+				setSquads(Array.isArray(squadData) ? squadData : []);
 			})
 			.catch((err) => setError(err instanceof Error ? err.message : 'Failed to load Project Control status'));
 		return () => { cancelled = true; };
-	}, [projectId]);
+	}, [projectId, useExistingProject]);
+
+	useEffect(() => {
+		if (!useExistingProject || !projectId) return;
+		api.getProject(projectId)
+			.then((data) => {
+				setRuns(Array.isArray(data.executionRuns) ? data.executionRuns : []);
+			})
+			.catch(() => setRuns([]));
+	}, [projectId, useExistingProject, status]);
 
 	const visibleTasks = useMemo(() => (status?.tasks || []).filter((task) => task.status !== 'done').slice(0, 8), [status]);
 
@@ -202,7 +226,7 @@ export default function ProjectControlPage() {
 
 	const sendMessage = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!message.trim() || !projectId) return;
+		if (!message.trim() || !useExistingProject || !projectId) return;
 		const userMessage = message.trim();
 		setMessage('');
 		setMessages((current) => [...current, { role: 'user', content: userMessage }]);
@@ -220,7 +244,7 @@ export default function ProjectControlPage() {
 	};
 
 	const requestProposal = async () => {
-		if (!projectId) return;
+		if (!useExistingProject || !projectId) return;
 		setProposing(true);
 		setError(null);
 		try {
@@ -248,6 +272,41 @@ export default function ProjectControlPage() {
 		}
 	};
 
+	const requestExecutionProposal = async () => {
+		if (!useExistingProject || !projectId || !message.trim()) return;
+		setProposing(true);
+		setError(null);
+		try {
+			const next = await api.proposeExecution({ projectId, message: message.trim(), engine: 'fake', mode: 'coding' });
+			setExecutionProposal(next);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : 'Failed to propose execution');
+		} finally {
+			setProposing(false);
+		}
+	};
+
+	const approveExecutionProposal = async () => {
+		if (!executionProposal) return;
+		setApplying(true);
+		setError(null);
+		try {
+			await api.approveExecution('proposal', { approved: true, proposal: executionProposal });
+			setExecutionProposal(null);
+			await refreshStatus();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : 'Failed to approve execution');
+		} finally {
+			setApplying(false);
+		}
+	};
+
+	const saveGovernance = async () => {
+		if (!projectId || !governance) return;
+		const saved = await api.updateProjectGovernance(projectId, governance);
+		setGovernance(saved);
+	};
+
 	return (
 		<Layout activeNav="project-control">
 			<div className="w-full min-w-0 space-y-5">
@@ -259,19 +318,38 @@ export default function ProjectControlPage() {
 						</h1>
 						<p className="text-sm text-slate-400 mt-1">Manage delivery with grounded chat and approval-based staffing.</p>
 					</div>
-					<select
-						value={projectId}
-						onChange={(e) => setProjectId(e.target.value)}
-						className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-200 min-w-[240px]"
-					>
-						{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-					</select>
+					<div className="flex flex-col sm:flex-row sm:items-center gap-3">
+						<label className="flex items-center gap-2 text-sm text-slate-300">
+							<input
+								type="checkbox"
+								checked={useExistingProject}
+								onChange={(e) => setUseExistingProject(e.target.checked)}
+								className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--surface-card)]"
+							/>
+							Existing project
+						</label>
+						{useExistingProject && (
+							<select
+								value={projectId}
+								onChange={(e) => setProjectId(e.target.value)}
+								className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-200 min-w-[240px]"
+							>
+								{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+							</select>
+						)}
+					</div>
 				</div>
 
 				{loading && <p className="text-sm text-slate-400">Loading Project Control...</p>}
 				{!loading && projects.length === 0 && (
 					<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-8 text-center">
 						<p className="text-slate-300">Create a Project first.</p>
+					</div>
+				)}
+				{!loading && projects.length > 0 && !useExistingProject && (
+					<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-8 text-center">
+						<p className="text-slate-300">Select Existing project to bind chat and execution controls to one Project.</p>
+						<p className="text-xs text-slate-500 mt-2">Project Control will only load live context after a Project is selected.</p>
 					</div>
 				)}
 				{error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">{error}</div>}
@@ -320,6 +398,10 @@ export default function ProjectControlPage() {
 									<button type="button" onClick={requestProposal} disabled={proposing} className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white text-sm px-4 py-2 rounded-md flex items-center justify-center gap-2">
 										{proposing ? <FaSpinner className="w-3 h-3 animate-spin" /> : <FaUserCog className="w-3 h-3" />}
 										Propose Staffing
+									</button>
+									<button type="button" onClick={requestExecutionProposal} disabled={proposing || !message.trim()} className="w-full border border-[var(--border-default)] hover:bg-[var(--bg-secondary)] disabled:opacity-60 text-slate-200 text-sm px-4 py-2 rounded-md flex items-center justify-center gap-2">
+										<FaProjectDiagram className="w-3 h-3" />
+										Propose Execution
 									</button>
 								</div>
 
@@ -385,6 +467,21 @@ export default function ProjectControlPage() {
 									/>
 								)}
 
+								{executionProposal && (
+									<div className="bg-[var(--surface-card)] border border-amber-500/40 rounded-lg p-4 space-y-3">
+										<h2 className="text-sm font-semibold text-[var(--text-primary)]">Execution Proposal</h2>
+										<p className="text-xs text-slate-400">Engine: {executionProposal.engine} · Risk: {executionProposal.risk} · Branch: {executionProposal.branch}</p>
+										{executionProposal.implications?.map((item: string) => <p key={item} className="text-sm text-slate-300">- {item}</p>)}
+										{executionProposal.blockers?.map((item: string) => <p key={item} className="text-sm text-red-300">{item}</p>)}
+										<div className="flex gap-2">
+											<button type="button" disabled={applying || executionProposal.blockers?.length > 0} onClick={approveExecutionProposal} className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white text-sm px-4 py-2 rounded-md">
+												Approve Run
+											</button>
+											<button type="button" onClick={() => setExecutionProposal(null)} className="border border-[var(--border-default)] text-sm text-slate-300 px-4 py-2 rounded-md">Reject</button>
+										</div>
+									</div>
+								)}
+
 								<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 									<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4 space-y-2">
 										<h2 className="text-sm font-semibold text-[var(--text-primary)]">Risks</h2>
@@ -401,6 +498,48 @@ export default function ProjectControlPage() {
 											<div key={task.id} className="text-sm text-slate-300">
 												<p className="truncate">{task.title}</p>
 												<p className="text-xs text-slate-500">{task.status} · {task.priority}{task.assignedAgent ? ` · ${task.assignedAgent.name}` : ''}</p>
+											</div>
+										))}
+									</div>
+								</div>
+								<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+									<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4 space-y-2">
+										<h2 className="text-sm font-semibold text-[var(--text-primary)]">Repository</h2>
+										<p className="text-sm text-slate-300">Mode: {status.project.repositoryMode || 'none'}</p>
+										<p className="text-sm text-slate-300">Status: {status.project.repositoryStatus || 'unconfigured'}</p>
+										<p className="text-sm text-slate-300">Default branch: {status.project.defaultBranch || 'main'}</p>
+										<p className="text-xs text-slate-500 truncate">{status.project.repoUrl || 'No repository configured'}</p>
+									</div>
+									<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4 space-y-2">
+										<h2 className="text-sm font-semibold text-[var(--text-primary)]">Recent Runs</h2>
+										{runs.length === 0 ? <p className="text-sm text-slate-400">No execution runs yet.</p> : runs.slice(0, 5).map((run) => (
+											<div key={run.id} className="text-sm text-slate-300">
+												<p>{run.engine} · {run.status}</p>
+												<p className="text-xs text-slate-500">{run.id}</p>
+											</div>
+										))}
+									</div>
+									<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4 space-y-2">
+										<h2 className="text-sm font-semibold text-[var(--text-primary)]">Governance</h2>
+										<textarea
+											value={governance?.humanDirectives || ''}
+											onChange={(e) => setGovernance({ ...(governance || {}), humanDirectives: e.target.value })}
+											placeholder="Human directives"
+											className="w-full bg-[#1d1f33] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)] min-h-[90px]"
+										/>
+										<div className="flex flex-wrap gap-3 text-xs text-slate-300">
+											<label><input type="checkbox" checked={governance?.allowShell === true} onChange={(e) => setGovernance({ ...(governance || {}), allowShell: e.target.checked })} /> Shell</label>
+											<label><input type="checkbox" checked={governance?.allowRemotePush === true} onChange={(e) => setGovernance({ ...(governance || {}), allowRemotePush: e.target.checked })} /> Remote push</label>
+											<label><input type="checkbox" checked={governance?.allowAutoPr === true} onChange={(e) => setGovernance({ ...(governance || {}), allowAutoPr: e.target.checked })} /> Auto PR</label>
+										</div>
+										<button type="button" onClick={saveGovernance} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-md">Save Governance</button>
+									</div>
+									<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4 space-y-2">
+										<h2 className="text-sm font-semibold text-[var(--text-primary)]">Squads</h2>
+										{squads.length === 0 ? <p className="text-sm text-slate-400">No dynamic squads yet.</p> : squads.slice(0, 5).map((squad) => (
+											<div key={squad.id} className="text-sm text-slate-300">
+												<p>{squad.name} · {squad.status}</p>
+												<p className="text-xs text-slate-500">{squad.members?.length || 0} members</p>
 											</div>
 										))}
 									</div>

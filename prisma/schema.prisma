@@ -63,11 +63,21 @@ model Project {
  description String?
  status String @default("active")
  progress Int @default(0) // 0-100
+ repositoryProvider String?
+ repositoryMode String? @default("none")
+ repositoryStatus String? @default("unconfigured")
+ defaultBranch String? @default("main")
  teamId String @unique
  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
  milestones Milestone[]
  sprints Sprint[]
  tasks Task[]
+ workspaces Workspace[]
+ executionRuns ExecutionRun[]
+ governance ProjectGovernance?
+ issues ProjectIssue[]
+ executionState ProjectExecutionState?
+ dynamicSquads DynamicSquad[]
  repoUrl String?
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
@@ -213,6 +223,7 @@ model RoleGroup {
  name String
  description String?
  color String?
+ toolPolicy String?
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
  instructions InstructionFile[]
@@ -261,4 +272,161 @@ model Skill {
  updatedAt DateTime @updatedAt
 
  @@index([roleGroupId])
+}
+
+model Workspace {
+ id String @id @default(cuid())
+ projectId String
+ executionRunId String?
+ path String
+ branch String?
+ baseCommit String?
+ headCommit String?
+ status String @default("creating")
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ executionRun ExecutionRun? @relation(fields: [executionRunId], references: [id], onDelete: SetNull)
+
+ @@index([projectId])
+ @@index([executionRunId])
+ @@index([status])
+}
+
+model ExecutionRun {
+ id String @id @default(cuid())
+ projectId String
+ taskId String?
+ agentId String?
+ squadId String?
+ jobId String?
+ workspaceId String?
+ engine String
+ configuredModelId String?
+ status String @default("queued")
+ outcome String?
+ failureReason String?
+ startedAt DateTime?
+ finishedAt DateTime?
+ heartbeatAt DateTime?
+ exitCode Int?
+ timedOut Boolean @default(false)
+ inputTokens Int?
+ outputTokens Int?
+ totalTokens Int?
+ costUsd Float?
+ resultSummary String?
+ changedFiles String?
+ artifacts String?
+ commands String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ workspaces Workspace[]
+ checkpoints ExecutionCheckpoint[]
+
+ @@index([projectId])
+ @@index([taskId])
+ @@index([agentId])
+ @@index([squadId])
+ @@index([status])
+ @@index([createdAt])
+}
+
+model ExecutionCheckpoint {
+ id String @id @default(cuid())
+ executionRunId String
+ phase String
+ gitCommit String?
+ taskStatus String?
+ agentStatus String?
+ metadata String?
+ createdAt DateTime @default(now())
+
+ executionRun ExecutionRun @relation(fields: [executionRunId], references: [id], onDelete: Cascade)
+
+ @@index([executionRunId])
+ @@index([phase])
+}
+
+model DynamicSquad {
+ id String @id @default(cuid())
+ projectId String
+ taskId String?
+ name String
+ status String @default("active")
+ reason String?
+ createdAt DateTime @default(now())
+ completedAt DateTime?
+
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+ members SquadMember[]
+
+ @@index([projectId])
+ @@index([taskId])
+ @@index([status])
+}
+
+model SquadMember {
+ id String @id @default(cuid())
+ squadId String
+ agentId String
+ role String
+
+ squad DynamicSquad @relation(fields: [squadId], references: [id], onDelete: Cascade)
+
+ @@index([squadId])
+ @@index([agentId])
+}
+
+model ProjectGovernance {
+ id String @id @default(cuid())
+ projectId String @unique
+ humanDirectives String?
+ forbiddenActions String?
+ architectureRules String?
+ approvalRules String?
+ maxDailyTokens Int?
+ maxDailyCostUsd Float?
+ maxConcurrentRuns Int?
+ allowShell Boolean @default(false)
+ allowRemotePush Boolean @default(false)
+ allowAutoPr Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectIssue {
+ id String @id @default(cuid())
+ projectId String
+ severity String
+ title String
+ description String?
+ status String @default("open")
+ source String?
+ createdAt DateTime @default(now())
+ resolvedAt DateTime?
+
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+ @@index([projectId])
+ @@index([severity])
+ @@index([status])
+}
+
+model ProjectExecutionState {
+ id String @id @default(cuid())
+ projectId String @unique
+ phase String @default("planning")
+ status String @default("active")
+ lastRunId String?
+ summary String?
+ updatedAt DateTime @updatedAt
+ createdAt DateTime @default(now())
+
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

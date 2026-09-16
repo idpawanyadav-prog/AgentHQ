@@ -180,7 +180,7 @@ export const api = {
 			method: 'POST',
 			body: JSON.stringify(data),
 		}),
-	updateProject: (id: string, data: { name?: string; description?: string; status?: string; progress?: number }) =>
+	updateProject: (id: string, data: { name?: string; description?: string; status?: string; progress?: number; repoUrl?: string; repositoryMode?: string; repositoryProvider?: string; repositoryStatus?: string; defaultBranch?: string }) =>
 		request(`/api/projects/${id}`, {
 			method: 'PUT',
 			body: JSON.stringify(data),
@@ -216,6 +216,49 @@ export const api = {
 			method: 'POST',
 			body: JSON.stringify({ action: 'apply', ...data }),
 		}),
+	proposeExecution: (data: { projectId: string; message: string; taskId?: string; agentId?: string; squadId?: string; engine?: string; mode?: 'analysis' | 'coding'; configuredModelId?: string }) =>
+		request('/api/executions/propose', {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	approveExecution: (id: string, data: { approved: boolean; proposal: Record<string, unknown> }) =>
+		request(`/api/executions/${id}/approve`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	cancelExecution: (id: string) =>
+		request(`/api/executions/${id}/cancel`, { method: 'POST' }),
+	getExecution: (id: string) => request(`/api/executions/${id}`),
+	getExecutionArtifacts: (id: string) => request(`/api/executions/${id}/artifacts`),
+	getExecutionDiff: (id: string) => request(`/api/executions/${id}/diff`),
+	getProjectGovernance: (projectId: string) => request(`/api/projects/${projectId}/governance`),
+	updateProjectGovernance: (projectId: string, data: Record<string, unknown>) =>
+		request(`/api/projects/${projectId}/governance`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+		}),
+	getProjectIssues: (projectId: string) => request(`/api/projects/${projectId}/issues`),
+	createProjectIssue: (projectId: string, data: { severity: string; title: string; description?: string }) =>
+		request(`/api/projects/${projectId}/issues`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	updateProjectIssue: (projectId: string, issueId: string, data: { status: 'open' | 'resolved' }) =>
+		request(`/api/projects/${projectId}/issues/${issueId}`, {
+			method: 'PUT',
+			body: JSON.stringify(data),
+		}),
+	proposeSquad: (data: { projectId: string; requirement: string; taskId?: string }) =>
+		request('/api/squads/propose', {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	approveSquad: (id: string, data: { approved: boolean; proposal: Record<string, unknown> }) =>
+		request(`/api/squads/${id}/approve`, {
+			method: 'POST',
+			body: JSON.stringify(data),
+		}),
+	getSquads: (projectId?: string) => request(`/api/squads${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
 
 	// Sprints
 	getSprints: (params?: { teamId?: string; projectId?: string }) =>

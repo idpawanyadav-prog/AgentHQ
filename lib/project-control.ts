@@ -198,6 +198,10 @@ export async function getProjectControlStatus(projectId: string, db: Db = prisma
 			status: project.status,
 			progress: project.progress,
 			repoUrl: project.repoUrl,
+			repositoryProvider: project.repositoryProvider,
+			repositoryMode: project.repositoryMode,
+			repositoryStatus: project.repositoryStatus,
+			defaultBranch: project.defaultBranch,
 		},
 		team: {
 			id: project.team.id,
