@@ -9,6 +9,8 @@ export type ConfiguredModelRecord = {
 	gatewayName: string;
 	provider: GatewayProvider;
 	modelId: string;
+	executionEngine?: 'api-chat' | 'api-tools';
+	supportsTools?: boolean;
 	createdAt: string;
 	updatedAt: string;
 };

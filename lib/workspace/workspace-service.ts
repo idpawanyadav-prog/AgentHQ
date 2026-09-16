@@ -72,6 +72,11 @@ export function gitDiff(workspacePath: string) {
 	return runGit(workspacePath, ['diff']).stdout;
 }
 
+export function gitCommittedDiff(workspacePath: string, baseCommit?: string | null, headCommit?: string | null) {
+	if (baseCommit && headCommit) return runGit(workspacePath, ['diff', `${baseCommit}..${headCommit}`]).stdout;
+	return gitDiff(workspacePath);
+}
+
 export function gitChangedFiles(workspacePath: string) {
 	const output = runGit(workspacePath, ['status', '--short']).stdout;
 	return output.split(/\r?\n/).map((line) => line.slice(3).trim()).filter(Boolean);

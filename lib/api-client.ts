@@ -221,11 +221,13 @@ export const api = {
 			method: 'POST',
 			body: JSON.stringify(data),
 		}),
-	approveExecution: (id: string, data: { approved: boolean; proposal: Record<string, unknown> }) =>
+	approveExecution: (id: string, data: { approved: boolean }) =>
 		request(`/api/executions/${id}/approve`, {
 			method: 'POST',
 			body: JSON.stringify(data),
 		}),
+	rejectExecutionProposal: (id: string) =>
+		request(`/api/executions/${id}/reject`, { method: 'POST' }),
 	cancelExecution: (id: string) =>
 		request(`/api/executions/${id}/cancel`, { method: 'POST' }),
 	getExecution: (id: string) => request(`/api/executions/${id}`),

@@ -277,7 +277,7 @@ export default function ProjectControlPage() {
 		setProposing(true);
 		setError(null);
 		try {
-			const next = await api.proposeExecution({ projectId, message: message.trim(), engine: 'fake', mode: 'coding' });
+			const next = await api.proposeExecution({ projectId, message: message.trim(), mode: 'coding' });
 			setExecutionProposal(next);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to propose execution');
@@ -291,7 +291,7 @@ export default function ProjectControlPage() {
 		setApplying(true);
 		setError(null);
 		try {
-			await api.approveExecution('proposal', { approved: true, proposal: executionProposal });
+			await api.approveExecution(String(executionProposal.id || executionProposal.proposalId), { approved: true });
 			setExecutionProposal(null);
 			await refreshStatus();
 		} catch (err) {

@@ -1,10 +1,12 @@
 import type { AgentExecutionEngine } from './engine';
 import { apiChatEngine } from './engines/api-chat';
+import { apiToolsEngine } from './engines/api-tools';
 import { FakeExecutionEngine } from './engines/fake';
 
 export const executionEngines = new Map<string, AgentExecutionEngine>();
 
 executionEngines.set('api-chat', apiChatEngine);
+executionEngines.set('api-tools', apiToolsEngine);
 executionEngines.set('fake', new FakeExecutionEngine());
 
 if (process.env.ENABLE_OPENAI_TOOL_ENGINE === 'true') {

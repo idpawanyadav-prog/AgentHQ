@@ -67,6 +67,8 @@ model Project {
  repositoryMode String? @default("none")
  repositoryStatus String? @default("unconfigured")
  defaultBranch String? @default("main")
+ defaultCodingModelId String?
+ validationCommands String?
  teamId String @unique
  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
  milestones Milestone[]
@@ -74,6 +76,7 @@ model Project {
  tasks Task[]
  workspaces Workspace[]
  executionRuns ExecutionRun[]
+ executionProposals ExecutionProposal[]
  governance ProjectGovernance?
  issues ProjectIssue[]
  executionState ProjectExecutionState?
@@ -196,7 +199,7 @@ model Gateway {
 
 model Job {
  id String @id @default(cuid())
- kind String // "agent_run"
+ kind String // "agent_run" | "execution_run"
  status String @default("queued") // queued | running | completed | failed | cancelled
  agentId String
  taskId String?
@@ -320,12 +323,15 @@ model ExecutionRun {
  changedFiles String?
  artifacts String?
  commands String?
+ validation String?
+ commitSha String?
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
 
  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
  workspaces Workspace[]
  checkpoints ExecutionCheckpoint[]
+ toolEvents ExecutionToolEvent[]
 
  @@index([projectId])
  @@index([taskId])
@@ -333,6 +339,52 @@ model ExecutionRun {
  @@index([squadId])
  @@index([status])
  @@index([createdAt])
+}
+
+model ExecutionProposal {
+ id String @id @default(cuid())
+ projectId String
+ taskId String?
+ agentId String?
+ squadId String?
+ configuredModelId String?
+ engine String
+ mode String
+ prompt String
+ branch String?
+ commands String?
+ implications String?
+ blockers String?
+ warnings String?
+ status String @default("pending")
+ createdAt DateTime @default(now())
+ approvedAt DateTime?
+ appliedAt DateTime?
+ rejectedAt DateTime?
+
+ project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+ @@index([projectId])
+ @@index([status])
+ @@index([createdAt])
+}
+
+model ExecutionToolEvent {
+ id String @id @default(cuid())
+ executionRunId String
+ turn Int
+ toolName String
+ arguments String?
+ resultSummary String?
+ status String
+ startedAt DateTime
+ finishedAt DateTime?
+
+ executionRun ExecutionRun @relation(fields: [executionRunId], references: [id], onDelete: Cascade)
+
+ @@index([executionRunId])
+ @@index([toolName])
+ @@index([status])
 }
 
 model ExecutionCheckpoint {

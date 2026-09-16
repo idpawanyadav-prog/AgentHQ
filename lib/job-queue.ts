@@ -2,10 +2,10 @@ import prisma from './prisma';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export type JobKind = 'agent_run';
+export type JobKind = 'agent_run' | 'execution_run';
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
-export interface JobPayload {
+export interface AgentJobPayload {
  agentId: string;
  taskId: string;
  teamId: string;
@@ -15,6 +15,15 @@ export interface JobPayload {
  gatewayId?: string;
  messages: Array<{ role: string; content: string }>;
 }
+
+export interface ExecutionJobPayload {
+ executionRunId: string;
+ teamId: string;
+ agentId?: string;
+ taskId?: string;
+}
+
+export type JobPayload = AgentJobPayload | ExecutionJobPayload;
 
 export interface JobResult {
  output: string;
@@ -46,8 +55,11 @@ const HEARTBEAT_TIMEOUT_MS = 30_000;
 function toRecord(row: any): JobRecord {
  return {...row,payload:JSON.parse(row.payload),result:row.result ? JSON.parse(row.result) : null};
 }
-export async function enqueueJob(payload: JobPayload, maxAttempts=3): Promise<JobRecord> {
+export async function enqueueJob(payload: AgentJobPayload, maxAttempts=3): Promise<JobRecord> {
  return toRecord(await prisma.job.create({data:{kind:'agent_run',payload:JSON.stringify(payload),agentId:payload.agentId,taskId:payload.taskId,teamId:payload.teamId,maxAttempts}}));
+}
+export async function enqueueExecutionJob(payload: ExecutionJobPayload, maxAttempts=2): Promise<JobRecord> {
+ return toRecord(await prisma.job.create({data:{kind:'execution_run',payload:JSON.stringify(payload),agentId:payload.agentId || 'execution-runner',taskId:payload.taskId || null,teamId:payload.teamId,maxAttempts}}));
 }
 export async function getJob(id:string) {const row=await prisma.job.findUnique({where:{id}});return row ? toRecord(row) : null;}
 export async function listJobs(filters?: {agentId?:string;taskId?:string;status?:JobStatus|JobStatus[]}) {
@@ -86,6 +98,7 @@ export async function completeJob(job:JobRecord,result:JobResult) {
  return prisma.$transaction(async tx=>{
   const changed=await tx.job.updateMany({where:{id:job.id,status:'running',cancelled:false,attempts:job.attempts},data:{status:'completed',finishedAt:new Date(),result:JSON.stringify(result),error:null}});
   if(!changed.count) return false;
+  if (job.kind === 'execution_run') return true;
   const agent=await tx.agent.findUnique({where:{id:job.agentId}});
   if(!agent) throw new Error('Agent no longer exists');
   await tx.agent.update({where:{id:job.agentId},data:{status:'idle'}});
@@ -134,7 +147,7 @@ export function startWorker(onRun:(job:JobRecord,signal:AbortSignal)=>Promise<Jo
      const retry=retryable && job.attempts<job.maxAttempts;
      await prisma.$transaction(async tx=>{
       const changed=await tx.job.updateMany({where:{id:job.id,status:'running',cancelled:false,attempts:job.attempts},data:{status:retry?'queued':'failed',finishedAt:retry?null:new Date(),heartbeatAt:null,error:(error as Error).message}});
-      if(changed.count && !retry) {
+      if(changed.count && !retry && job.kind === 'agent_run') {
        await tx.agent.updateMany({where:{id:job.agentId},data:{status:'error'}});
        await tx.activity.create({data:{teamId:job.teamId,taskId:job.taskId,type:'agent_error',description:'Agent request failed',meta:JSON.stringify({agentId:job.agentId,jobId:job.id,error:(error as Error).message})}});
       }

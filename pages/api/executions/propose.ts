@@ -18,7 +18,7 @@ export default withAuth(async function handler(req: NextApiRequest, res: NextApi
 			mode: req.body?.mode === 'analysis' ? 'analysis' : req.body?.mode === 'coding' ? 'coding' : undefined,
 			configuredModelId: typeof req.body?.configuredModelId === 'string' ? req.body.configuredModelId : undefined,
 		});
-		return res.status(200).json(proposal);
+		return res.status(201).json(proposal);
 	} catch (err) {
 		return res.status(400).json({ error: err instanceof Error ? err.message : 'Failed to propose execution' });
 	}

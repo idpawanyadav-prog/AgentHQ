@@ -297,6 +297,8 @@ export interface ConfiguredModel {
  gatewayName: string;
  provider: GatewayProvider;
  modelId: string;
+ executionEngine?: "api-chat" | "api-tools";
+ supportsTools?: boolean;
  assignments: number;
  agentNames: string[];
  createdAt: string;

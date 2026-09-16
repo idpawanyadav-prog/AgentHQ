@@ -11,6 +11,8 @@ type ConfiguredModelRecord = {
  gatewayName: string;
  provider: 'anthropic' | 'openai' | 'custom';
  modelId: string;
+ executionEngine?: 'api-chat' | 'api-tools';
+ supportsTools?: boolean;
  createdAt: string;
  updatedAt: string;
 };
@@ -47,6 +49,8 @@ async function resolveModelInput(body: Record<string, unknown>) {
 			gatewayName: gateway.name,
 			provider: gateway.provider as ConfiguredModelRecord['provider'],
 			modelId,
+			executionEngine: body.executionEngine === 'api-tools' ? 'api-tools' as const : 'api-chat' as const,
+			supportsTools: body.supportsTools === undefined ? body.executionEngine === 'api-tools' : body.supportsTools === true,
 		},
 	};
 }
