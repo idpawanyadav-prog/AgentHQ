@@ -25,14 +25,6 @@ function parseAgentConfig(config: unknown): Record<string, any> {
  }
 }
 
-function modelAllowedByGateway(gatewayModel: string, modelId: string) {
-	const allowed = gatewayModel
-		.split(/[\s,]+/)
-		.map((item) => item.trim())
-		.filter(Boolean);
-	return allowed.length === 0 || allowed.includes(modelId);
-}
-
 async function resolveModelInput(body: Record<string, unknown>) {
 	const name = typeof body.name === 'string' ? body.name.trim() : '';
 	const gatewayId = typeof body.gatewayId === 'string' ? body.gatewayId.trim() : '';
@@ -46,9 +38,6 @@ async function resolveModelInput(body: Record<string, unknown>) {
 	}
 	if (!['anthropic', 'openai', 'custom'].includes(gateway.provider)) {
 		return { ok: false as const, status: 400, error: 'Gateway provider is not supported' };
-	}
-	if (!modelAllowedByGateway(gateway.model, modelId)) {
-		return { ok: false as const, status: 400, error: 'Selected model is not available for this gateway' };
 	}
 	return {
 		ok: true as const,

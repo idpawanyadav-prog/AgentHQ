@@ -398,25 +398,38 @@ const AgentMemory: React.FC = () => {
  };
  }, []);
 
- // Update selected instruction when group changes
+ const activeInstructionIds = activeGroup?.instructions.map((instruction) => instruction.id).join("|") || "";
+ const activeSkillIds = activeGroup?.skills.map((skill) => skill.id).join("|") || "";
+
+ // Keep selected instruction valid when group contents change
  useEffect(() => {
- if (activeGroup && activeGroup.instructions.length > 0) {
- const currentStillExists = activeGroup.instructions.find(
- (i) => i.id === selectedInstructionId
- );
- if (!currentStillExists) {
+ if (!activeGroup) {
+ setSelectedInstructionId("");
+ return;
+ }
+ if (activeGroup.instructions.length === 0) {
+ setSelectedInstructionId("");
+ return;
+ }
+ if (!activeGroup.instructions.some((instruction) => instruction.id === selectedInstructionId)) {
  setSelectedInstructionId(activeGroup.instructions[0].id);
  }
+ }, [activeGroup, activeInstructionIds, selectedInstructionId]);
+
+ // Keep selected skill valid when group contents change
+ useEffect(() => {
+ if (!activeGroup) {
+ setSelectedSkillId("");
+ return;
  }
- if (activeGroup && activeGroup.skills.length > 0) {
- const currentSkillStillExists = activeGroup.skills.find(
- (skill) => skill.id === selectedSkillId
- );
- if (!currentSkillStillExists) {
+ if (activeGroup.skills.length === 0) {
+ setSelectedSkillId("");
+ return;
+ }
+ if (!activeGroup.skills.some((skill) => skill.id === selectedSkillId)) {
  setSelectedSkillId(activeGroup.skills[0].id);
  }
- }
- }, [activeGroupId]);
+ }, [activeGroup, activeSkillIds, selectedSkillId]);
 
  // Filter role groups by search
  const filteredGroups = roleGroups.filter((group) =>

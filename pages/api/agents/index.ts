@@ -39,6 +39,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  : null;
  if (configuredModel && !gateway) return res.status(400).json({error:'Configured model gateway not found'});
  const agent = await prisma.$transaction(async (tx) => {
+ if (roleGroupId) {
+ const group = await tx.roleGroup.findUnique({where:{id:roleGroupId}});
+ if (!group) throw new Error('Role group not found');
+ }
  let resolvedMemberId = memberId;
  if (resolvedMemberId) {
  const member = await tx.member.findUnique({where:{id:resolvedMemberId}});
@@ -55,10 +59,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  },
  });
  resolvedMemberId = member.id;
- }
- if (roleGroupId) {
- const group = await tx.roleGroup.findUnique({where:{id:roleGroupId}});
- if (!group) throw new Error('Role group not found');
  }
  const resolvedConfig = {
  ...(config && typeof config === 'object' ? config : {}),

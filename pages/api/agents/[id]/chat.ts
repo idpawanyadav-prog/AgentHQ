@@ -94,7 +94,6 @@ export default withAuth(async (req: NextApiRequest, res: NextApiResponse) => {
 		agent.id,
 		`You are ${agent.name}, an agent in the ${agent.member.role} role. Answer as this office agent and be concise, practical, and task-focused.`
 	);
-	if (systemPrompt.length > 12000) return res.status(400).json({ error: 'System prompt is too large' });
 	const messages = [
 		...history
 			.filter((item) => ['user', 'assistant'].includes(item.role) && typeof item.content === 'string')

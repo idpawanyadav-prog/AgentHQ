@@ -2,5 +2,19 @@
  "extends": ["next/core-web-vitals"],
  "rules": {
  "no-console": ["warn", { "allow": ["warn", "error"] }]
- }
+ },
+ "overrides": [
+  {
+   "files": ["server/**/*.{js,ts}", "prisma/**/*.ts", "db-check.ts", "fix_*.js"],
+   "rules": {
+    "no-console": "off"
+   }
+  },
+  {
+   "files": ["tests/**/*.{ts,tsx}"],
+   "rules": {
+    "react/display-name": "off"
+   }
+  }
+ ]
 }

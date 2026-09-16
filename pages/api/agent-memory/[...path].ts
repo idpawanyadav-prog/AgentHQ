@@ -274,10 +274,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 				if (!agent) {
 					return res.status(404).json({ error: 'Agent not found' });
 				}
-				const assignment = await prisma.agentRoleAssignment.upsert({
-					where: { roleGroupId_agentId: { roleGroupId: entityId, agentId } },
-					update: { agentName: agent.name, agentStatus: agent.status },
-					create: { roleGroupId: entityId, agentId, agentName: agent.name, agentStatus: agent.status },
+				const assignment = await prisma.$transaction(async (tx) => {
+					await tx.agentRoleAssignment.deleteMany({
+						where: { agentId, roleGroupId: { not: entityId } },
+					});
+					return tx.agentRoleAssignment.upsert({
+						where: { roleGroupId_agentId: { roleGroupId: entityId, agentId } },
+						update: { agentName: agent.name, agentStatus: agent.status },
+						create: { roleGroupId: entityId, agentId, agentName: agent.name, agentStatus: agent.status },
+					});
 				});
 				res.status(201).json(serializeAssignment(assignment));
 			} catch (err) {

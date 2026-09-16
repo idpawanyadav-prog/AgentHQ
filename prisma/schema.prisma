@@ -247,7 +247,7 @@ model AgentRoleAssignment {
 
  @@index([roleGroupId])
  @@unique([roleGroupId, agentId])
- @@index([agentId])
+ @@unique([agentId])
 }
 
 model Skill {

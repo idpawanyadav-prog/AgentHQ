@@ -1,0 +1,7 @@
+.next/
+.next-production/
+node_modules/
+coverage/
+dist/
+out/
+prisma/migrations/
