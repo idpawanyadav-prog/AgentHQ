@@ -13,6 +13,8 @@ type ConfiguredModelRecord = {
  modelId: string;
  executionEngine?: 'api-chat' | 'api-tools';
  supportsTools?: boolean;
+ roleId?: string;
+ roleName?: string;
  createdAt: string;
  updatedAt: string;
 };
@@ -51,6 +53,8 @@ async function resolveModelInput(body: Record<string, unknown>) {
 			modelId,
 			executionEngine: body.executionEngine === 'api-tools' ? 'api-tools' as const : 'api-chat' as const,
 			supportsTools: body.supportsTools === undefined ? body.executionEngine === 'api-tools' : body.supportsTools === true,
+			roleId: typeof body.roleId === 'string' && body.roleId.trim() ? body.roleId.trim() : undefined,
+			roleName: typeof body.roleName === 'string' && body.roleName.trim() ? body.roleName.trim() : undefined,
 		},
 	};
 }

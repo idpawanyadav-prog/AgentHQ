@@ -273,12 +273,12 @@ export const api = {
 
 	// Models
 	getModels: () => request('/api/models'),
-	createModel: (data: { name: string; gatewayId: string; gatewayName?: string; provider?: string; modelId: string }) =>
+	createModel: (data: { name: string; gatewayId: string; gatewayName?: string; provider?: string; modelId: string; roleId?: string; roleName?: string }) =>
 		request('/api/models', {
 			method: 'POST',
 			body: JSON.stringify(data),
 		}),
-	updateModel: (id: string, data: { name: string; gatewayId: string; gatewayName?: string; provider?: string; modelId: string }) =>
+	updateModel: (id: string, data: { name: string; gatewayId: string; gatewayName?: string; provider?: string; modelId: string; roleId?: string; roleName?: string }) =>
 		request('/api/models', {
 			method: 'PUT',
 			body: JSON.stringify({ id, ...data }),

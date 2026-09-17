@@ -482,3 +482,166 @@ model ProjectExecutionState {
 
  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
+
+// ===== Memory Foundation =====
+
+model ProjectMemory {
+ id String @id @default(cuid())
+ projectId String @unique
+ mission String?
+ productSummary String?
+ architecture String?
+ techStack String?
+ conventions String?
+ currentPhase String? // DeliveryPhase enum value
+ currentGoal String?
+ completedWork String?
+ keyDecisions String?
+ knownRisks String?
+ blockers String?
+ nextActions String?
+ openQuestions String?
+ testStrategy String?
+ releaseNotes String?
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([projectId])
+}
+
+model TaskMemory {
+ id String @id @default(cuid())
+ taskId String @unique
+ projectId String
+ objective String?
+ context String?
+ investigation String?
+ implementation String?
+ filesTouched String?
+ commandsRun String?
+ validation String?
+ decisions String?
+ blockers String?
+ remainingWork String?
+ nextAction String?
+ lastAgentId String?
+ lastExecutionId String?
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([projectId])
+ @@index([lastAgentId])
+}
+
+model AgentMemory {
+ id String @id @default(cuid())
+ agentId String
+ projectId String?
+ scope String @default("project") // MemoryScope: global | project | task
+ category String // MemoryCategory: technical_pattern | lesson | failure | workflow | domain_knowledge | preference
+ title String?
+ content String
+ importance Int @default(50)
+ confidence Float?
+ sourceType String?
+ sourceId String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ lastUsedAt DateTime?
+
+ @@index([agentId])
+ @@index([projectId])
+ @@index([scope])
+ @@index([category])
+}
+
+model DecisionRecord {
+ id String @id @default(cuid())
+ projectId String
+ taskId String?
+ sprintId String?
+ title String
+ decision String
+ rationale String?
+ alternatives String?
+ consequences String?
+ status String @default("active") // active | superseded
+ createdByAgentId String?
+ createdAt DateTime @default(now())
+ supersededAt DateTime?
+
+ @@index([projectId])
+ @@index([taskId])
+ @@index([status])
+}
+
+model HandoffRecord {
+ id String @id @default(cuid())
+ projectId String
+ taskId String?
+ fromAgentId String?
+ toAgentId String?
+ type String // HandoffType: developer_to_reviewer | reviewer_to_developer | developer_to_qa | qa_to_developer | agent_reassignment | task_pause | task_resume | sprint_handoff
+ summary String
+ completedWork String?
+ remainingWork String?
+ importantFiles String?
+ decisions String?
+ blockers String?
+ nextActions String?
+ createdAt DateTime @default(now())
+ consumedAt DateTime?
+
+ @@index([projectId])
+ @@index([taskId])
+ @@index([toAgentId])
+}
+
+model TaskReview {
+ id String @id @default(cuid())
+ projectId String
+ taskId String @unique
+ executionRunId String?
+ reviewerAgentId String?
+ status String @default("pending") // ReviewStatus: pending | approved | changes_requested
+ summary String?
+ findings String?
+ createdAt DateTime @default(now())
+ completedAt DateTime?
+
+ @@index([taskId])
+ @@index([status])
+}
+
+model SprintSummary {
+ id String @id @default(cuid())
+ sprintId String @unique
+ projectId String
+ goal String?
+ completed String?
+ incomplete String?
+ blockers String?
+ decisions String?
+ lessons String?
+ nextSprint String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ @@index([projectId])
+}
+
+model SprintRetrospective {
+ id String @id @default(cuid())
+ sprintId String
+ projectId String
+ wentWell String?
+ problems String?
+ lessons String?
+ actions String?
+ createdAt DateTime @default(now())
+
+ @@index([sprintId])
+ @@index([projectId])
+}

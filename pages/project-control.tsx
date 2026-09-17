@@ -147,7 +147,6 @@ function ProposalEditor({
 
 export default function ProjectControlPage() {
 	const [projects, setProjects] = useState<Array<{ id: string; name: string; status: string }>>([]);
-	const [useExistingProject, setUseExistingProject] = useState(false);
 	const [projectId, setProjectId] = useState('');
 	const [status, setStatus] = useState<ProjectControlStatus | null>(null);
 	const [persona, setPersona] = useState<Persona>('project-control');
@@ -174,7 +173,7 @@ export default function ProjectControlPage() {
 				setProjects(items);
 				const active = items.filter((item: any) => item.status === 'active');
 				const selected = active.length === 1 ? active[0] : items[0];
-				if (selected) setProjectId(selected.id);
+				if (selected && !projectId) setProjectId(selected.id);
 			})
 			.catch((err) => setError(err instanceof Error ? err.message : 'Failed to load projects'))
 			.finally(() => !cancelled && setLoading(false));
@@ -182,7 +181,7 @@ export default function ProjectControlPage() {
 	}, []);
 
 	useEffect(() => {
-		if (!useExistingProject || !projectId) {
+		if (!projectId) {
 			setStatus(null);
 			return;
 		}
@@ -204,16 +203,16 @@ export default function ProjectControlPage() {
 			})
 			.catch((err) => setError(err instanceof Error ? err.message : 'Failed to load Project Control status'));
 		return () => { cancelled = true; };
-	}, [projectId, useExistingProject]);
+	}, [projectId]);
 
 	useEffect(() => {
-		if (!useExistingProject || !projectId) return;
+		if (!projectId) return;
 		api.getProject(projectId)
 			.then((data) => {
 				setRuns(Array.isArray(data.executionRuns) ? data.executionRuns : []);
 			})
 			.catch(() => setRuns([]));
-	}, [projectId, useExistingProject, status]);
+	}, [projectId, status]);
 
 	const visibleTasks = useMemo(() => (status?.tasks || []).filter((task) => task.status !== 'done').slice(0, 8), [status]);
 
@@ -226,16 +225,17 @@ export default function ProjectControlPage() {
 
 	const sendMessage = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!message.trim() || !useExistingProject || !projectId) return;
+		if (!message.trim()) return;
 		const userMessage = message.trim();
 		setMessage('');
 		setMessages((current) => [...current, { role: 'user', content: userMessage }]);
 		setChatting(true);
 		setError(null);
 		try {
-			const response = await api.chatProjectControl({ projectId, persona, message: userMessage, history: messages });
+			const response = await api.chatProjectControl({ projectId: projectId || '', persona, message: userMessage, history: messages });
 			setMessages((current) => [...current, { role: 'assistant', content: response.reply }]);
 			if (response.staffingProposal) setProposal(response.staffingProposal);
+			if (response.projectId && !projectId) setProjectId(response.projectId);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Project Control chat failed');
 		} finally {
@@ -244,7 +244,7 @@ export default function ProjectControlPage() {
 	};
 
 	const requestProposal = async () => {
-		if (!useExistingProject || !projectId) return;
+		if (!projectId) return;
 		setProposing(true);
 		setError(null);
 		try {
@@ -273,7 +273,7 @@ export default function ProjectControlPage() {
 	};
 
 	const requestExecutionProposal = async () => {
-		if (!useExistingProject || !projectId || !message.trim()) return;
+		if (!projectId || !message.trim()) return;
 		setProposing(true);
 		setError(null);
 		try {
@@ -318,26 +318,15 @@ export default function ProjectControlPage() {
 						</h1>
 						<p className="text-sm text-slate-400 mt-1">Manage delivery with grounded chat and approval-based staffing.</p>
 					</div>
-					<div className="flex flex-col sm:flex-row sm:items-center gap-3">
-						<label className="flex items-center gap-2 text-sm text-slate-300">
-							<input
-								type="checkbox"
-								checked={useExistingProject}
-								onChange={(e) => setUseExistingProject(e.target.checked)}
-								className="h-4 w-4 rounded border-[var(--border-default)] bg-[var(--surface-card)]"
-							/>
-							Existing project
-						</label>
-						{useExistingProject && (
-							<select
-								value={projectId}
-								onChange={(e) => setProjectId(e.target.value)}
-								className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-200 min-w-[240px]"
-							>
-								{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-							</select>
-						)}
-					</div>
+					{projects.length > 0 && (
+						<select
+							value={projectId}
+							onChange={(e) => setProjectId(e.target.value)}
+							className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-slate-200 min-w-[240px]"
+						>
+							{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+						</select>
+					)}
 				</div>
 
 				{loading && <p className="text-sm text-slate-400">Loading Project Control...</p>}
@@ -346,13 +335,14 @@ export default function ProjectControlPage() {
 						<p className="text-slate-300">Create a Project first.</p>
 					</div>
 				)}
-				{!loading && projects.length > 0 && !useExistingProject && (
+				{error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">{error}</div>}
+
+				{projectId && !status && !error && (
 					<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-8 text-center">
-						<p className="text-slate-300">Select Existing project to bind chat and execution controls to one Project.</p>
-						<p className="text-xs text-slate-500 mt-2">Project Control will only load live context after a Project is selected.</p>
+						<FaSpinner className="w-6 h-6 animate-spin text-blue-400 mx-auto mb-3" />
+						<p className="text-slate-300">Loading project context...</p>
 					</div>
 				)}
-				{error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">{error}</div>}
 
 				{status && (
 					<>
@@ -435,7 +425,7 @@ export default function ProjectControlPage() {
 									</div>
 									<div className="h-[420px] overflow-y-auto space-y-3 pr-1">
 										{messages.length === 0 && (
-											<p className="text-sm text-slate-400">Ask for project status, blockers, requirements, staffing, sprint risk, or BA refinement.</p>
+											<p className="text-sm text-slate-400">Ask for project status, blockers, requirements, staffing, sprint risk, or BA refinement. Type "create a new Weather Teller project" to bootstrap one.</p>
 										)}
 										{messages.map((item, index) => (
 											<div key={index} className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${item.role === 'user' ? 'ml-auto bg-blue-600 text-white' : 'bg-[var(--bg-secondary)] text-slate-200'}`}>
@@ -448,7 +438,7 @@ export default function ProjectControlPage() {
 										<input
 											value={message}
 											onChange={(e) => setMessage(e.target.value)}
-											placeholder="Ask Project Control..."
+											placeholder="Ask Project Control, or say 'create a new project'..."
 											className="flex-1 bg-[#1d1f33] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)]"
 										/>
 										<button type="submit" disabled={chatting || !message.trim()} className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white px-4 py-2 rounded-md">
@@ -548,6 +538,33 @@ export default function ProjectControlPage() {
 						</div>
 					</>
 				)}
+
+				{/* Always-visible Chat */}
+				<div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-4">
+					<h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Project Control Chat</h2>
+					<div className="h-[420px] overflow-y-auto space-y-3 pr-1">
+						{messages.length === 0 && (
+							<p className="text-sm text-slate-400">Ask for project status, blockers, requirements, staffing, sprint risk, or BA refinement. Type "create a new Weather Teller project" to bootstrap one from scratch.</p>
+						)}
+						{messages.map((item, index) => (
+							<div key={index} className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${item.role === 'user' ? 'ml-auto bg-blue-600 text-white' : 'bg-[var(--bg-secondary)] text-slate-200'}`}>
+								{item.content}
+							</div>
+						))}
+						{chatting && <div className="text-sm text-slate-400 flex items-center gap-2"><FaSpinner className="animate-spin" /> Thinking...</div>}
+					</div>
+					<form onSubmit={sendMessage} className="mt-4 flex gap-2">
+						<input
+							value={message}
+							onChange={(e) => setMessage(e.target.value)}
+							placeholder="Ask Project Control, or say 'create a new project'..."
+							className="flex-1 bg-[#1d1f33] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-[var(--text-primary)]"
+						/>
+						<button type="submit" disabled={chatting || !message.trim()} className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white px-4 py-2 rounded-md">
+							<FaPaperPlane className="w-3 h-3" />
+						</button>
+					</form>
+				</div>
 			</div>
 		</Layout>
 	);

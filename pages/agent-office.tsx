@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
+import OfficeFloor from '@/components/OfficeFloor';
+import OfficeKanban from '@/components/OfficeKanban';
+import OfficeTimeline from '@/components/OfficeTimeline';
+import MemoryPanel from '@/components/MemoryPanel';
 import AgentOfficeTiles, { type AgentOfficeSelection } from '@/components/AgentOfficeTiles';
 import api from '@/lib/api-client';
 import type { Agent, Member, Task, Team } from '@/types';
-import { FaBuilding, FaChair, FaCheck, FaClock, FaComments, FaMicrochip, FaPaperPlane, FaTasks, FaTimes } from 'react-icons/fa';
+import { FaBuilding, FaChair, FaMicrochip, FaTasks, FaEye, FaTable, FaList, FaClock, FaMemory } from 'react-icons/fa';
 
 type OfficeTeam = Team & {
 	members: Member[];
@@ -25,10 +29,7 @@ function normalizeTeams(teamData: OfficeTeam[]) {
 	teamData.forEach((team) => {
 		const key = team.id === 'on-bench' || team.name.toLowerCase() === 'on bench' ? 'on-bench' : team.id;
 		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, team);
-			return;
-		}
+		if (!existing) { byKey.set(key, team); return; }
 		byKey.set(key, {
 			...existing,
 			id: key === 'on-bench' ? 'on-bench' : existing.id,
@@ -44,6 +45,8 @@ export default function AgentOfficePage() {
 	const [teams, setTeams] = useState<OfficeTeam[]>([]);
 	const [agents, setAgents] = useState<AgentWithMember[]>([]);
 	const [selection, setSelection] = useState<AgentOfficeSelection | null>(null);
+	const [viewMode, setViewMode] = useState<'floor' | 'kanban' | 'list' | 'timeline'>('floor');
+	const [showMemory, setShowMemory] = useState(false);
 	const [chatTarget, setChatTarget] = useState<AgentOfficeSelection | null>(null);
 	const [chatDraft, setChatDraft] = useState('');
 	const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>({});
@@ -76,9 +79,7 @@ export default function AgentOfficePage() {
 			}
 		}
 		load();
-		return () => {
-			active = false;
-		};
+		return () => { active = false; };
 	}, [refreshOfficeData]);
 
 	const totalMembers = teams.reduce((sum, team) => sum + (team.members?.length || 0), 0);
@@ -105,10 +106,7 @@ export default function AgentOfficePage() {
 	);
 
 	useEffect(() => {
-		if (!selection?.teamId) {
-			setSelectedTaskId('');
-			return;
-		}
+		if (!selection?.teamId) { setSelectedTaskId(''); return; }
 		const currentStillValid = selectedTeamOpenTasks.some((task) => task.id === selectedTaskId);
 		if (!currentStillValid) setSelectedTaskId(selectedTeamOpenTasks[0]?.id || '');
 	}, [selection?.teamId, selectedTaskId, selectedTeamOpenTasks]);
@@ -121,10 +119,7 @@ export default function AgentOfficePage() {
 			const intro = target.memberType === 'human'
 				? `Hi, I'm ${target.memberName}. I'm sitting in the ${target.teamName} bay.`
 				: `Hi, I'm ${target.agentName || target.memberName}. I'm ready in the ${target.teamName} bay.`;
-			return {
-				...previous,
-				[target.memberId!]: [{ from: 'member', text: intro }],
-			};
+			return { ...previous, [target.memberId!]: [{ from: 'member', text: intro }] };
 		});
 	};
 
@@ -146,10 +141,7 @@ export default function AgentOfficePage() {
 		}));
 		setChatMessages((previous) => ({
 			...previous,
-			[chatTarget.memberId!]: [
-				...(previous[chatTarget.memberId!] || []),
-				{ from: 'user', text },
-			],
+			[chatTarget.memberId!]: [...(previous[chatTarget.memberId!] || []), { from: 'user', text }],
 		}));
 		setChatDraft('');
 		setActionError('');
@@ -159,10 +151,7 @@ export default function AgentOfficePage() {
 			.then((response) => {
 				setChatMessages((previous) => ({
 					...previous,
-					[chatTarget.memberId!]: [
-						...(previous[chatTarget.memberId!] || []),
-						{ from: 'member', text: response.reply },
-					],
+					[chatTarget.memberId!]: [...(previous[chatTarget.memberId!] || []), { from: 'member', text: response.reply }],
 				}));
 				setActionMessage('Gateway chat completed.');
 				return refreshOfficeData();
@@ -173,25 +162,19 @@ export default function AgentOfficePage() {
 
 	const assignSelectedTask = async () => {
 		if (!selection?.memberId || !selectedTaskId) return;
-		setActionError('');
-		setActionMessage('');
-		setBusyAction('assign');
+		setActionError(''); setActionMessage(''); setBusyAction('assign');
 		try {
 			await api.assignTask(selectedTaskId, selection.memberId, selection.agentId);
 			await refreshOfficeData();
 			setActionMessage('Task assigned.');
 		} catch (err) {
 			setActionError(err instanceof Error ? err.message : 'Failed to assign task');
-		} finally {
-			setBusyAction(null);
-		}
+		} finally { setBusyAction(null); }
 	};
 
 	const activateSelectedAgent = async () => {
 		if (!selection?.agentId || !selectedTaskId) return;
-		setActionError('');
-		setActionMessage('');
-		setBusyAction('activate');
+		setActionError(''); setActionMessage(''); setBusyAction('activate');
 		try {
 			await api.assignTask(selectedTaskId, selection.memberId, selection.agentId);
 			await api.startAgent(selection.agentId, selectedTaskId);
@@ -199,10 +182,24 @@ export default function AgentOfficePage() {
 			setActionMessage('Agent activated.');
 		} catch (err) {
 			setActionError(err instanceof Error ? err.message : 'Failed to activate agent');
-		} finally {
-			setBusyAction(null);
-		}
+		} finally { setBusyAction(null); }
 	};
+
+	const viewButtons = [
+		{ mode: 'floor' as const, label: 'Floor', Icon: FaEye },
+		{ mode: 'kanban' as const, label: 'Kanban', Icon: FaTable },
+		{ mode: 'list' as const, label: 'List', Icon: FaList },
+		{ mode: 'timeline' as const, label: 'Timeline', Icon: FaClock },
+	];
+
+	const activities: import('@/types').Activity[] = allTasks.slice(0, 20).map((task) => ({
+		id: task.id,
+		type: task.status === 'done' ? 'agent_completed' : task.status === 'in_progress' ? 'agent_started' : 'task_assigned',
+		description: task.title,
+		task,
+		createdAt: task.updatedAt,
+		teamId: task.teamId,
+	}));
 
 	return (
 		<Layout activeNav="agent-office">
@@ -210,7 +207,7 @@ export default function AgentOfficePage() {
 				<div>
 					<h1 className="text-2xl font-bold text-[var(--text-primary)]">Agent Office</h1>
 					<p className="mt-1 text-sm text-[var(--text-secondary)]">
-						Tile office generated from your actual teams. Each team becomes one bay; each assigned member becomes one desk.
+						Multi-view office. Switch between Floor, Kanban, List, and Timeline. Select a desk to view details and memory.
 					</p>
 				</div>
 
@@ -226,12 +223,12 @@ export default function AgentOfficePage() {
 					<>
 						<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 							{[
-								{ label: 'Office Bays', value: teams.length, icon: FaBuilding, bg: 'bg-blue-400/10', color: 'text-blue-300' },
-								{ label: 'Desks', value: totalMembers, icon: FaChair, bg: 'bg-purple-400/10', color: 'text-purple-300' },
-								{ label: 'Working Agents', value: workingAgents, icon: FaMicrochip, bg: 'bg-green-400/10', color: 'text-green-300' },
-								{ label: 'Open Tasks', value: openTasks, icon: FaTasks, bg: 'bg-amber-400/10', color: 'text-amber-300' },
+								{ label: 'Office Bays', value: teams.length, Icon: FaBuilding, bg: 'bg-blue-400/10', color: 'text-blue-300' },
+								{ label: 'Desks', value: totalMembers, Icon: FaChair, bg: 'bg-purple-400/10', color: 'text-purple-300' },
+								{ label: 'Working Agents', value: workingAgents, Icon: FaMicrochip, bg: 'bg-green-400/10', color: 'text-green-300' },
+								{ label: 'Open Tasks', value: openTasks, Icon: FaTasks, bg: 'bg-amber-400/10', color: 'text-amber-300' },
 							].map((stat) => {
-								const Icon = stat.icon;
+								const Icon = stat.Icon;
 								return (
 									<div key={stat.label} className="stat-card">
 										<div className="flex items-start justify-between gap-3">
@@ -248,245 +245,183 @@ export default function AgentOfficePage() {
 							})}
 						</div>
 
-						<div className="overflow-hidden rounded-lg border border-[var(--border-default)] bg-[#0b1020]">
-							<div className="border-b border-[var(--border-default)] px-4 py-3">
-								<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-									<div>
-										<h2 className="text-lg font-semibold text-[var(--text-primary)]">Team Tile Office</h2>
-										<p className="mt-1 text-sm text-[var(--text-secondary)]">
-											{teams.length} bay{teams.length === 1 ? '' : 's'} rendered dynamically from your teams, including On Bench.
-										</p>
-									</div>
-									<span className="rounded-full bg-blue-400/10 px-3 py-1 text-xs text-blue-300">
-										Live office scene
-									</span>
-								</div>
-							</div>
-							<div className="grid grid-cols-1 xl:grid-cols-[1fr_360px]">
-								<AgentOfficeTiles
-									teams={teams}
-									agents={agents}
-									selectedMemberId={selection?.memberId}
-									onSelect={handleOfficeSelect}
-								/>
-								<aside className="border-t border-[var(--border-default)] bg-[#f4efe3] p-4 text-[#171514] xl:border-l xl:border-t-0">
-									<div className="mb-3 border-b border-[#171514] pb-2">
-										<div className="flex items-center justify-between">
-											<h3 className="font-serif text-lg tracking-wide">TASK STATUS</h3>
-											<span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#77736b]">Whole Office</span>
-										</div>
-										<p className="mt-1 text-xs text-[#77736b]">{teams.length} bays · {totalMembers} desks · {workingAgents} working</p>
-									</div>
-
-									<div className="mb-3 flex flex-wrap gap-1.5">
-										{[
-											{ id: 'all' as const, label: 'All', count: allTasks.length },
-											{ id: 'backlog' as const, label: 'Backlog', count: backlogTasks },
-											{ id: 'active' as const, label: 'Active', count: activeTasks },
-											{ id: 'done' as const, label: 'Done', count: doneTasks },
-										].map((chip) => (
-											<button
-												key={chip.id}
-												type="button"
-												onClick={() => setStatusFilter(chip.id)}
-												className={
-													"rounded-full border px-2.5 py-1 text-xs font-medium transition-colors " +
-													(statusFilter === chip.id
-														? "border-[#171514] bg-[#171514] text-[#f4efe3]"
-														: "border-[#d8d0c0] text-[#5f5a51] hover:border-[#171514]")
-												}
-											>
-												{chip.label} <b>{chip.count}</b>
-											</button>
-										))}
-									</div>
-
-									<div className="mb-4 max-h-[260px] space-y-2 overflow-y-auto pr-1">
-										{visibleTasks.length === 0 && <p className="py-5 text-sm italic text-[#77736b]">Nothing here right now.</p>}
-										{visibleTasks.slice(0, 18).map((task) => (
-											<div key={task.id} className="rounded-md border border-[#d8d0c0] bg-white/70 p-2">
-												<div className="flex items-start gap-2">
-													<span className="mt-0.5 rounded border border-[#171514] px-1.5 py-0.5 text-[10px] font-bold uppercase">
-														{task.status === 'done' ? <FaCheck className="h-3 w-3" /> : task.status === 'in_progress' ? <FaClock className="h-3 w-3" /> : 'NEXT'}
-													</span>
-													<div className="min-w-0">
-														<p className="line-clamp-2 text-xs font-semibold">{task.title}</p>
-														<p className="mt-0.5 text-[10px] uppercase tracking-wide text-[#77736b]">{task.teamName} · {task.status.replace(/_/g, ' ')}</p>
-													</div>
-												</div>
-											</div>
-										))}
-									</div>
-
-									<div className="rounded-md border border-[#d8d0c0] bg-white/70 p-3">
-										<h4 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[#77736b]">Selected</h4>
-										{selection ? (
-											<div className="space-y-2">
-												<div>
-													<p className="text-base font-semibold">{selection.memberName || selection.teamName}</p>
-													<p className="text-xs text-[#77736b]">{selection.memberRole || selectedTeam?.description || 'Office bay'}</p>
-												</div>
-												{selection.agentId && (
-													<div className="grid grid-cols-2 gap-2 text-xs">
-														<div className="rounded bg-[#f4efe3] p-2">
-															<p className="text-[#77736b]">Agent</p>
-															<p className="font-semibold">{selection.agentName}</p>
-														</div>
-														<div className="rounded bg-[#f4efe3] p-2">
-															<p className="text-[#77736b]">Status</p>
-															<p className="font-semibold">{selection.agentStatus}</p>
-														</div>
-													</div>
-												)}
-												<p className="text-xs text-[#77736b]">Bay: {selection.teamName}</p>
-												{selection.memberId && (
-													<div className="space-y-2 border-t border-[#d8d0c0] pt-2">
-														<label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#77736b]">
-															Open task
-														</label>
-														<select
-															value={selectedTaskId}
-															onChange={(event) => setSelectedTaskId(event.target.value)}
-															className="w-full rounded-md border border-[#d8d0c0] bg-white px-2 py-2 text-xs outline-none focus:border-[#171514]"
-															disabled={selectedTeamOpenTasks.length === 0}
-														>
-															{selectedTeamOpenTasks.length === 0 ? (
-																<option value="">No open tasks in this team</option>
-															) : (
-																selectedTeamOpenTasks.map((task) => (
-																	<option key={task.id} value={task.id}>
-																		{task.title} ({task.status.replace(/_/g, ' ')})
-																	</option>
-																))
-															)}
-														</select>
-														<div className="grid grid-cols-2 gap-2">
-															<button
-																type="button"
-																onClick={assignSelectedTask}
-																disabled={!selectedTaskId || busyAction !== null}
-																className="rounded-md border border-[#171514] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#171514] disabled:cursor-not-allowed disabled:opacity-45"
-															>
-																{busyAction === 'assign' ? 'Assigning...' : 'Assign'}
-															</button>
-															<button
-																type="button"
-																onClick={activateSelectedAgent}
-																disabled={!selectedTaskId || !selection.agentId || selectedAgent?.status === 'working' || busyAction !== null}
-																className="rounded-md bg-[#171514] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#f4efe3] disabled:cursor-not-allowed disabled:opacity-45"
-															>
-																{busyAction === 'activate' ? 'Starting...' : 'Activate'}
-															</button>
-														</div>
-														{!selection.agentId && <p className="text-xs text-[#77736b]">Assign works for this human desk. Activation requires an AI agent.</p>}
-														{selection.agentId && selectedAgent?.status === 'working' && <p className="text-xs text-[#77736b]">This agent is already active.</p>}
-													</div>
-												)}
-											</div>
-										) : (
-											<p className="text-sm text-[#77736b]">Click a bay or desk in the office.</p>
-										)}
-									</div>
-
-									{(actionError || actionMessage) && (
-										<div className={"mt-3 rounded-md border px-3 py-2 text-xs " + (actionError ? "border-red-300 bg-red-50 text-red-700" : "border-emerald-300 bg-emerald-50 text-emerald-700")}>
-											{actionError || actionMessage}
-										</div>
-									)}
-
-									<div className="mt-4 rounded-md border border-[#d8d0c0] bg-white/70 p-3">
-										<div className="mb-2 flex items-center justify-between gap-2">
-											<div className="flex items-center gap-2">
-												<FaComments className="h-3.5 w-3.5 text-[#77736b]" />
-												<h4 className="text-xs font-bold uppercase tracking-[0.14em] text-[#77736b]">Chat</h4>
-											</div>
-											{chatTarget && (
-												<button
-													type="button"
-													onClick={() => setChatTarget(null)}
-													className="rounded-full p-1 text-[#77736b] hover:bg-[#f4efe3] hover:text-[#171514]"
-													title="Close chat"
-												>
-													<FaTimes className="h-3 w-3" />
-												</button>
-											)}
-										</div>
-										{chatTarget ? (
-											<div className="space-y-3">
-												<div>
-													<p className="text-base font-semibold">{chatTarget.memberName || chatTarget.agentName}</p>
-													<p className="text-xs text-[#77736b]">{chatTarget.memberRole || chatTarget.agentModel || chatTarget.teamName}</p>
-												</div>
-												<div className="flex max-h-[220px] flex-col gap-2 overflow-y-auto rounded-md border border-[#d8d0c0] bg-[#f4efe3] p-2">
-													{activeChatMessages.map((message, index) => (
-														<div
-															key={`${chatKey}-${index}`}
-															className={
-																"max-w-[86%] rounded-md px-2.5 py-2 text-xs leading-relaxed " +
-																(message.from === 'user'
-																	? "self-end bg-[#171514] text-[#f4efe3]"
-																	: "self-start border border-[#d8d0c0] bg-white text-[#171514]")
-															}
-														>
-															{message.text}
-														</div>
-													))}
-												</div>
-												<form
-													className="flex gap-2"
-													onSubmit={(event) => {
-														event.preventDefault();
-														sendChatMessage();
-													}}
-												>
-													<input
-														value={chatDraft}
-														onChange={(event) => setChatDraft(event.target.value)}
-														placeholder="Message this member..."
-														className="min-w-0 flex-1 rounded-md border border-[#d8d0c0] bg-white px-3 py-2 text-xs outline-none focus:border-[#171514]"
-													/>
-													<button
-														type="submit"
-														disabled={busyAction !== null}
-														className="inline-flex items-center justify-center rounded-md bg-[#171514] px-3 text-[#f4efe3] hover:bg-black disabled:cursor-not-allowed disabled:opacity-45"
-														title="Send"
-													>
-														{busyAction === 'chat' ? <span className="text-[10px] font-bold">...</span> : <FaPaperPlane className="h-3 w-3" />}
-													</button>
-												</form>
-											</div>
-										) : (
-											<p className="text-sm text-[#77736b]">Click a name label above any desk to chat.</p>
-										)}
-									</div>
-								</aside>
-							</div>
+						<div className="flex flex-wrap items-center gap-2">
+							{viewButtons.map(({ mode, label, Icon }) => (
+								<button
+									key={mode}
+									type="button"
+									onClick={() => setViewMode(mode)}
+									className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+										viewMode === mode
+											? 'border-white/30 bg-white/10 text-white'
+											: 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
+									}`}
+								>
+									<Icon className="h-3.5 w-3.5" />
+									{label}
+								</button>
+							))}
+							<button
+								type="button"
+								onClick={() => setShowMemory((v) => !v)}
+								className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+									showMemory
+										? 'border-indigo-400/30 bg-indigo-500/10 text-indigo-300'
+										: 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white'
+								}`}
+							>
+								<FaMemory className="h-3.5 w-3.5" />
+								Memory
+							</button>
 						</div>
 
-						<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-							{teams.map((team) => {
-								const members = team.members || [];
-								const open = (team.tasks || []).filter((task) => task.status !== 'done').length;
-								return (
-									<div key={team.id} className="rounded-lg border border-[var(--border-default)] bg-slate-800/30 p-4">
-										<div className="flex items-start justify-between gap-3">
-											<div className="min-w-0">
-												<h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{team.name}</h3>
-												<p className="mt-1 text-xs text-[var(--text-secondary)]">{members.length} desk{members.length === 1 ? '' : 's'} in this bay</p>
-											</div>
-											<span className="rounded-full bg-slate-900 px-2 py-0.5 text-xs text-slate-400">{open} open</span>
+						<div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_360px]">
+							{viewMode === 'floor' && (
+								<OfficeFloor teams={teams} agents={agents} selectedMemberId={selection?.memberId} onSelect={handleOfficeSelect} />
+							)}
+							{(viewMode === 'kanban' || viewMode === 'list') && (
+								<OfficeKanban tasks={visibleTasks} viewMode={viewMode} onTaskClick={(task) => setSelection({
+									teamId: task.teamId, teamName: '', memberId: task.assigneeId, memberName: task.assignee?.name || '', memberRole: '', memberType: 'human', agentId: task.agentId, agentName: task.agent?.name || '', agentModel: task.agent?.model || '', agentStatus: task.agent?.status || 'idle',
+								})} />
+							)}
+							{viewMode === 'timeline' && (
+								<OfficeTimeline activities={activities} maxItems={40} />
+							)}
+
+							<aside className="space-y-4">
+								{showMemory && selection && (
+									<MemoryPanel projectId={selection.teamId} taskId={selectedTaskId || undefined} onClose={() => setShowMemory(false)} />
+								)}
+								{!showMemory && (
+									<div className="rounded-xl border border-white/10 bg-slate-900/80 p-4">
+										<div className="mb-3 border-b border-white/10 pb-2">
+											<h3 className="font-serif text-lg tracking-wide">TASK STATUS</h3>
+											<p className="mt-1 text-xs text-[var(--text-secondary)]">{teams.length} bays · {totalMembers} desks · {workingAgents} working</p>
 										</div>
-										<div className="mt-3 flex flex-wrap gap-2">
-											{members.slice(0, 8).map((member) => (
-												<span key={member.id} className="rounded-full bg-slate-950/60 px-2 py-1 text-[11px] text-slate-300">
-													{member.name}
-												</span>
+										<div className="mb-3 flex flex-wrap gap-1.5">
+											{[
+												{ id: 'all' as const, label: 'All', count: allTasks.length },
+												{ id: 'backlog' as const, label: 'Backlog', count: backlogTasks },
+												{ id: 'active' as const, label: 'Active', count: activeTasks },
+												{ id: 'done' as const, label: 'Done', count: doneTasks },
+											].map((chip) => (
+												<button key={chip.id} type="button" onClick={() => setStatusFilter(chip.id)} className={
+													"rounded-full border px-2.5 py-1 text-xs font-medium transition-colors " +
+													(statusFilter === chip.id ? "border-[#171514] bg-[#171514] text-[#f4efe3]" : "border-[#d8d0c0] text-[#5f5a51] hover:border-[#171514]")
+												}>
+													{chip.label} <b>{chip.count}</b>
+												</button>
 											))}
-											{members.length === 0 && <span className="text-xs text-slate-500">No desks yet</span>}
+										</div>
+										<div className="mb-4 max-h-[260px] space-y-2 overflow-y-auto pr-1">
+											{visibleTasks.length === 0 && <p className="py-5 text-sm italic text-[#77736b]">Nothing here right now.</p>}
+											{visibleTasks.slice(0, 18).map((task) => (
+												<div key={task.id} className="rounded-md border border-[#d8d0c0] bg-white/70 p-2">
+													<div className="flex items-start gap-2">
+														<span className="mt-0.5 rounded border border-[#171514] px-1.5 py-0.5 text-[10px] font-bold uppercase">
+															{task.status === 'done' ? <FaCheck className="h-3 w-3" /> : task.status === 'in_progress' ? <FaClock className="h-3 w-3" /> : 'NEXT'}
+														</span>
+														<div className="min-w-0">
+															<p className="line-clamp-2 text-xs font-semibold">{task.title}</p>
+															<p className="mt-0.5 text-[10px] uppercase tracking-wide text-[#77736b]">{task.teamName} · {task.status.replace(/_/g, ' ')}</p>
+														</div>
+													</div>
+												</div>
+											))}
+										</div>
+										<div className="rounded-md border border-[#d8d0c0] bg-white/70 p-3">
+											<h4 className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-[#77736b]">Selected</h4>
+											{selection ? (
+												<div className="space-y-2">
+													<div>
+														<p className="text-base font-semibold">{selection.memberName || selection.teamName}</p>
+														<p className="text-xs text-[#77736b]">{selection.memberRole || selectedTeam?.description || 'Office bay'}</p>
+													</div>
+													{selection.agentId && (
+														<div className="grid grid-cols-2 gap-2 text-xs">
+															<div className="rounded bg-[#f4efe3] p-2">
+																<p className="text-[#77736b]">Agent</p>
+																<p className="font-semibold">{selection.agentName}</p>
+															</div>
+															<div className="rounded bg-[#f4efe3] p-2">
+																<p className="text-[#77736b]">Status</p>
+																<p className="font-semibold">{selection.agentStatus}</p>
+															</div>
+														</div>
+													)}
+													<p className="text-xs text-[#77736b]">Bay: {selection.teamName}</p>
+													{selection.memberId && (
+														<div className="space-y-2 border-t border-[#d8d0c0] pt-2">
+															<label className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#77736b]">Open task</label>
+															<select value={selectedTaskId} onChange={(e) => setSelectedTaskId(e.target.value)} className="w-full rounded-md border border-[#d8d0c0] bg-white px-2 py-2 text-xs outline-none focus:border-[#171514]" disabled={selectedTeamOpenTasks.length === 0}>
+																{selectedTeamOpenTasks.length === 0 ? <option value="">No open tasks</option> : selectedTeamOpenTasks.map((task) => (
+																	<option key={task.id} value={task.id}>{task.title} ({task.status.replace(/_/g, ' ')})</option>
+																))}
+															</select>
+															<div className="grid grid-cols-2 gap-2">
+																<button type="button" onClick={assignSelectedTask} disabled={!selectedTaskId || busyAction !== null} className="rounded-md border border-[#171514] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#171514] disabled:cursor-not-allowed disabled:opacity-45">
+																	{busyAction === 'assign' ? 'Assigning...' : 'Assign'}
+																</button>
+																<button type="button" onClick={activateSelectedAgent} disabled={!selectedTaskId || !selection.agentId || selectedAgent?.status === 'working' || busyAction !== null} className="rounded-md bg-[#171514] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#f4efe3] disabled:cursor-not-allowed disabled:opacity-45">
+																	{busyAction === 'activate' ? 'Starting...' : 'Activate'}
+																</button>
+															</div>
+															{!selection.agentId && <p className="text-xs text-[#77736b]">Assign works for human desks. Activation requires an AI agent.</p>}
+															{selection.agentId && selectedAgent?.status === 'working' && <p className="text-xs text-[#77736b]">This agent is already active.</p>}
+														</div>
+													)}
+												</div>
+											) : (
+												<p className="text-sm text-[#77736b]">Click a bay or desk in the office.</p>
+											)}
 										</div>
 									</div>
-								);
-							})}
+								)}
+							</aside>
+						</div>
+
+						{(actionError || actionMessage) && (
+							<div className={"rounded-md border px-3 py-2 text-xs " + (actionError ? "border-red-300 bg-red-50 text-red-700" : "border-emerald-300 bg-emerald-50 text-emerald-700")}>
+								{actionError || actionMessage}
+							</div>
+						)}
+
+						<div className="rounded-xl border border-white/10 bg-slate-900/80 p-4">
+							<div className="mb-3 flex items-center justify-between gap-2">
+								<div className="flex items-center gap-2">
+									<FaMemory className="h-3.5 w-3.5 text-indigo-300" />
+									<h3 className="text-sm font-semibold text-white">Team Bay Summary</h3>
+								</div>
+							</div>
+							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+								{teams.map((team) => {
+									const members = team.members || [];
+									const open = (team.tasks || []).filter((task) => task.status !== 'done').length;
+									return (
+										<div key={team.id} className="rounded-lg border border-white/10 bg-slate-800/40 p-3">
+											<div className="flex items-start justify-between gap-3">
+												<div className="min-w-0">
+													<h4 className="truncate text-sm font-semibold text-white">{team.name}</h4>
+													<p className="mt-0.5 text-xs text-[var(--text-secondary)]">{members.length} desk{members.length === 1 ? '' : 's'} · {open} open</p>
+												</div>
+												<span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-300">Bay</span>
+											</div>
+											<div className="mt-3 flex flex-wrap gap-1.5">
+												{members.slice(0, 8).map((member) => {
+													const agent = agents.find((a) => a.memberId === member.id);
+													const agentTasks = (team.tasks || []).filter((t) => t.agentId === agent?.id && t.status !== 'done');
+													return (
+														<span key={member.id} className="rounded-full bg-slate-950/60 px-2 py-1 text-[11px] text-slate-300" title={agentTasks[0]?.title}>
+															{member.name}{agentTasks[0] ? ` · ${agentTasks[0].status.replace(/_/g, ' ')}` : ''}
+														</span>
+													);
+												})}
+												{members.length === 0 && <span className="text-xs text-slate-500">No desks yet</span>}
+											</div>
+										</div>
+									);
+								})}
+							</div>
 						</div>
 					</>
 				)}

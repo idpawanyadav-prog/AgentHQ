@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import api from '@/lib/api-client';
-import type { ConfiguredModel, Gateway } from '@/types';
+import type { ConfiguredModel, Gateway, RoleGroup } from '@/types';
 import { FaCheck, FaComments, FaDownload, FaEdit, FaMicrochip, FaPaperPlane, FaPlug, FaPlus, FaSave, FaSpinner, FaTimes, FaTrash } from 'react-icons/fa';
 
 const PROVIDER_COLORS: Record<string, { bg: string; text: string }> = {
@@ -14,6 +14,7 @@ const emptyForm = {
 	name: '',
 	gatewayId: '',
 	modelId: '',
+	roleId: '',
 };
 
 type TestResult = {
@@ -30,6 +31,7 @@ type ChatMessage = {
 export default function ModelsPage() {
 	const [models, setModels] = useState<ConfiguredModel[]>([]);
 	const [gateways, setGateways] = useState<Gateway[]>([]);
+	const [roleGroups, setRoleGroups] = useState<RoleGroup[]>([]);
 	const [form, setForm] = useState(emptyForm);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [modelOptions, setModelOptions] = useState<string[]>([]);
@@ -51,15 +53,20 @@ export default function ModelsPage() {
 		setLoading(true);
 		setError('');
 		try {
-			const [modelData, gatewayResponse] = await Promise.all([
+			const [modelData, gatewayResponse, roleData] = await Promise.all([
 				api.getModels(),
 				fetch('/api/gateways').then((res) => {
 					if (!res.ok) throw new Error('Unable to load gateways');
 					return res.json();
 				}),
+				fetch('/api/agent-memory').then((res) => {
+					if (!res.ok) return [];
+					return res.json().then((data: any) => (Array.isArray(data) ? data : data.roleGroups || []));
+				}).catch(() => []),
 			]);
 			setModels(Array.isArray(modelData) ? modelData : []);
 			setGateways(Array.isArray(gatewayResponse.gateways) ? gatewayResponse.gateways : []);
+			setRoleGroups(Array.isArray(roleData) ? roleData : []);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to load models');
 		} finally {
@@ -144,6 +151,8 @@ export default function ModelsPage() {
 			gatewayName: selectedGateway.name,
 			provider: selectedGateway.provider,
 			modelId: form.modelId,
+			roleId: form.roleId || undefined,
+			roleName: form.roleId ? roleGroups.find((r) => r.id === form.roleId)?.name : undefined,
 		};
 		try {
 			if (editingId) {
@@ -164,7 +173,7 @@ export default function ModelsPage() {
 
 	const editModel = (model: ConfiguredModel) => {
 		setEditingId(model.id);
-		setForm({ name: model.name, gatewayId: model.gatewayId, modelId: model.modelId });
+		setForm({ name: model.name, gatewayId: model.gatewayId, modelId: model.modelId, roleId: model.roleId || '' });
 		setModelOptions([model.modelId]);
 		setError('');
 		setMessage('');
@@ -336,6 +345,22 @@ export default function ModelsPage() {
 							{fetchingModels ? 'Fetching...' : 'Fetch Models'}
 						</button>
 					</div>
+
+					{roleGroups.length > 0 && (
+					<label className="block">
+						Role:
+						<select
+							value={form.roleId}
+							onChange={(event) => setForm((prev) => ({ ...prev, roleId: event.target.value }))}
+							className="input-field mt-1"
+						>
+							<option value="">None (global)</option>
+							{roleGroups.map((group) => (
+								<option key={group.id} value={group.id}>{group.name}</option>
+							))}
+						</select>
+					</label>
+					)}
 
 					{error && <p role="alert" className="text-sm text-red-400">{error}</p>}
 					{message && <p className="text-sm text-emerald-400">{message}</p>}

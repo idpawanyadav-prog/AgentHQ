@@ -31,7 +31,7 @@ export interface Agent {
  updatedAt: string;
 }
 
-export type AgentStatus = "idle" | "working" | "error";
+export type AgentStatus = "idle" | "working" | "error" | "bench" | "paused" | "blocked";
 
 export interface TeamMemberInfo {
  name: string;
@@ -140,7 +140,8 @@ export type TaskStatus =
  | "review"
  | "testing"
  | "done"
- | "blocked";
+ | "blocked"
+ | "paused";
 
 export interface CIStatus {
  state: "pending" | "success" | "failure" | "error";
@@ -299,6 +300,8 @@ export interface ConfiguredModel {
  modelId: string;
  executionEngine?: "api-chat" | "api-tools";
  supportsTools?: boolean;
+ roleId?: string;
+ roleName?: string;
  assignments: number;
  agentNames: string[];
  createdAt: string;
